@@ -6,13 +6,12 @@ library(gridExtra)
 library(lmtest)
 library(reshape2)
 setwd("UCM/Mineria de Datos y Modelizacion Predictiva IV/Practica 4/")
-# URL dataset: https://fred.stlouisfed.org/series/S4248SM144NCEN
+# URL dataset: https://fred.stlouisfed.org/series/MRTSSM4481USN
 # Apartado 1.
-ventas.ropa <- read_excel("clothes_2.xls")
+ventas.ropa <- read_excel("retail_sales.xls")
 ventas.ropa$observation_date <- format(as.Date(ventas.ropa$observation_date), "%Y-%m")
 
 # Columnas del conjunto de datos
-colnames(ventas.ropa)
 min(ventas.ropa$observation_date) # Fecha min: Enero 2006
 max(ventas.ropa$observation_date) # Fecha max: Diciembre 2019
 
@@ -32,11 +31,11 @@ ventas.ropa.comp<- decompose(ventas.ropa.ts,type=c("multiplicative"))
 autoplot(ventas.ropa.comp)
 
 # Componente estacional
-# Mes Diciembre: los ingresos por ventas de ropa de caballero son un 51.15 % superior a la media anual
-# Meses Enero y Febrero: los ingresos por ventas de ropa de caballero son, aproximadamente, un 19 % inferior con respecto a la media anual, aprox.
+# Mes Diciembre: los ingresos por ventas de ropa son un 57.8 % superior a la media anual
+# Meses Enero y Febrero: los ingresos por ventas de ropa son, respectivamente, un 25.5 y 14.9 % inferior con respecto a la media anual, aprox.
 comp.est <- data.frame(t(ventas.ropa.comp$seasonal[c(1:12)]))
 colnames(comp.est) <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-print(comp.est, row.names = F)
+print(round(comp.est,3), row.names = F)
 
 # Representamos la serie con la tendencia y la serie ajustada estacionalmente 
 autoplot(ventas.ropa.ts, series="Datos") +
@@ -46,7 +45,7 @@ autolayer(trendcycle(ventas.ropa.comp), series="Tendencia") + autolayer(seasadj(
                                                         breaks=c("Datos","Estacionalmente ajustada","Tendencia"))
 
 ggseasonplot(ventas.ropa.ts, year.labels=TRUE, year.labels.left=TRUE) + ylab("Número") +
-  ggtitle("Seasonal plot: ingresos por ventas en ropa de caballero")
+  ggtitle("Seasonal plot: ingresos por ventas en ropa de caballero") + theme(text = element_text(size = 9))
 
 # Representamos los coeficientes de estacionalidad e irregularidad
 ventas.ropa.season<- cbind(ventas.ropa.comp$seasonal,ventas.ropa.comp$random)
@@ -64,7 +63,6 @@ alisado.simple <- autoplot(ventas.ropa.ss) +
   ylab("Millones de millas") + xlab("Año")
 alisado.simple
 round(accuracy(ventas.ropa.ss),3)
-sum(abs((ventas.ropa.test - summary.ss) / ventas.ropa.ts)) / 12
 
 # Alisado doble (Holt)
 ventas.ropa.holt <- holt(ventas.ropa.ts.transformado, h=12)
@@ -81,9 +79,14 @@ summary.hw <- summary(ventas.ropa.hw)$`Point Forecast`[c(1:12)]
 alisado.hw <- autoplot(ventas.ropa.hw) + 
   autolayer(fitted(ventas.ropa.hw), series="Fitted") + 
   ylab("Millones de millas") + xlab("Año")
-round(accuracy(ventas.ropa.hw),3)
 alisado.hw
-sum(abs((ventas.ropa.test - summary.hw) / ventas.ropa.test)) / 12
+round(accuracy(ventas.ropa.hw),3)
+
+estadisticas.suavizado <- rbind(round(accuracy(ventas.ropa.ss),3), round(accuracy(ventas.ropa.holt),3),
+                          round(accuracy(ventas.ropa.hw),3))
+rownames(estadisticas.suavizado) <- c("Alisado simple", "Alisado doble", "Alisado Holt-Winters")
+
+data.frame(cbind(round(accuracy(prediccion, ventas.ropa.test), 3), "AIC" = AIC(fitARIMA.2), "SBC" = BIC(fitARIMA.2)))
 
 # Elegimos el modelo de Holt-Winter
 summary(ventas.ropa.hw)

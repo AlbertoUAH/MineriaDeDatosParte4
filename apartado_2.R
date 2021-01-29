@@ -1,19 +1,20 @@
 # Apartado 5.
-var.max <- apply(matrix(ventas.ropa.ts.transformado, ncol = 12, byrow = TRUE), 1, FUN=max)
-var.min <- apply(matrix(ventas.ropa.ts.transformado, ncol = 12, byrow = TRUE), 1, FUN=min)
-serie.temp <- autoplot(ventas.ropa.ts.transformado)
-serie.temp +  ggtitle("Ingresos por ventas en ropa de caballero") +
-  xlab("Mes-Año") +  ylab("Millones de dólares") + geom_line(data = data.frame(x = serie.temp$data[which(serie.temp$data$y %in% var.max), 2], y = var.max), color = "red", linetype = "dashed") +
-  geom_line(data = data.frame(x = serie.temp$data[which(serie.temp$data$y %in% var.min), 2], y = var.min), color = "red", linetype = "dashed")
+var.max.original <- apply(matrix(ventas.ropa.ts.transformado, ncol = 12, byrow = TRUE), 1, FUN=max)
+var.min.original <- apply(matrix(ventas.ropa.ts.transformado, ncol = 12, byrow = TRUE), 1, FUN=min)
+serie.temp.original <- autoplot(ventas.ropa.ts.transformado)
+serie.temp.original +  ggtitle("Ingresos por ventas en ropa de caballero") +
+  xlab("Mes-Año") +  ylab("Millones de dólares") + geom_line(data = data.frame(x = serie.temp.original$data[which(serie.temp.original$data$y %in% var.max.original), 2], y = var.max.original), color = "red", linetype = "dashed") +
+  geom_line(data = data.frame(x = serie.temp.original$data[which(serie.temp.original$data$y %in% var.min.original), 2], y = var.min.original), color = "red", linetype = "dashed")
 
 # Sin embargo, empleando el logaritmo (lambda = 0) parece que estabilizamos la varianza
 transf.box.cox <-  log(ventas.ropa.ts.transformado)
-var.max <- apply(matrix(transf.box.cox, ncol = 12, byrow = TRUE), 1, FUN=max)
-var.min <- apply(matrix(transf.box.cox, ncol = 12, byrow = TRUE), 1, FUN=min)
-serie.temp <- autoplot(transf.box.cox)
-serie.temp +  ggtitle("Ingresos por ventas en ropa de caballero (log)") +
-  xlab("Mes-Año") +  ylab("Millones de dólares (log)")  + geom_line(data = data.frame(x = serie.temp$data[which(serie.temp$data$y %in% var.max), 2], y = var.max), color = "red", linetype = "dashed") +
-  geom_line(data = data.frame(x = serie.temp$data[which(serie.temp$data$y %in% var.min), 2], y = var.min), color = "red", linetype = "dashed")
+var.max.log <- apply(matrix(transf.box.cox, ncol = 12, byrow = TRUE), 1, FUN=max)
+var.min.log <- apply(matrix(transf.box.cox, ncol = 12, byrow = TRUE), 1, FUN=min)
+serie.temp.log <- autoplot(transf.box.cox)
+serie.temp.log +  ggtitle("Ingresos por ventas en ropa de caballero (log)") +
+  xlab("Mes-Año") +  ylab("Millones de dólares (log)")  + geom_line(data = data.frame(x = serie.temp.log$data[which(serie.temp.log$data$y %in% var.max.log), 2], y = var.max.log), color = "red", linetype = "dashed") +
+  geom_line(data = data.frame(x = serie.temp.log$data[which(serie.temp.log$data$y %in% var.min.log), 2], y = var.min.log), color = "red", linetype = "dashed")
+
 
 # Por otro lado, segun la funcion BoxCox.lambda, nos recomienda transformar la serie con lambda = 0.36
 BoxCox.lambda(ventas.ropa.ts.transformado, method = "guerrero")
@@ -116,8 +117,13 @@ checkresiduals(fitARIMA.1.2, plot = FALSE)
 ggtsdisplay(residuals(fitARIMA.1.2))
 data.frame(cbind(round(accuracy(fitARIMA.1.2), 3), "AIC" = AIC(fitARIMA.1.2), "SBC" = BIC(fitARIMA.1.2)))
 
+estadisticas <- rbind(cbind(round(accuracy(fitARIMA.1), 3), "AIC" = AIC(fitARIMA.1), "SBC" = BIC(fitARIMA.1), "p-valor (Lljung-Box)" = checkresiduals(fitARIMA.1, plot = FALSE)$p.value, "df" = checkresiduals(fitARIMA.1, plot = FALSE)$parameter),
+      cbind(round(accuracy(fitARIMA.1.1), 3), "AIC" = AIC(fitARIMA.1.1), "SBC" = BIC(fitARIMA.1.1), "p-valor (Lljung-Box)" = checkresiduals(fitARIMA.1.1, plot = FALSE)$p.value, "df" = checkresiduals(fitARIMA.1.1, plot = FALSE)$parameter),
+      cbind(round(accuracy(fitARIMA.1.2), 3), "AIC" = AIC(fitARIMA.1.2), "SBC" = BIC(fitARIMA.1.2), "p-valor (Lljung-Box)" = checkresiduals(fitARIMA.1.2, plot = FALSE)$p.value, "df" = checkresiduals(fitARIMA.1.2, plot = FALSE)$parameter))
+rownames(estadisticas) <- c("ARIMA (2,1,0) (0,1,2)", "ARIMA (2,1,0) (3,1,0)", "ARIMA (2,1,0) (3,1,2)")
+
 # Funcion para comparar graficamente modelos ARIMA
-comparar.resultados <- function(series, leyenda) {
+comparar.resultados <- function(series, leyenda, colores) {
   i <- 1
   p <- autoplot(ventas.ropa.test, PI = FALSE)
   lista.accuracy.train <- data.frame(); lista.accuracy.test <- c()
@@ -136,7 +142,7 @@ comparar.resultados <- function(series, leyenda) {
   }
   p <- p + autolayer(ventas.ropa.test, series = "Datos test") +
     guides(colour = guide_legend("Modelo"), fill=guide_legend(title="Modelos de prediccion")) +
-    ggtitle("Comparativa modelos ARIMA") + scale_color_manual(values=c("black", "red", "blue", "purple4"))
+    ggtitle("Comparativa modelos ARIMA") + scale_color_manual(values=colores)
   colnames(lista.accuracy.train) <- c("ME", "RMSE", "MAE", "MPE", "MAPE", "MASE", "ACF1", "Theil's U")
   colnames(lista.accuracy.test) <- c("ME", "RMSE", "MAE", "MPE", "MAPE", "MASE", "ACF1", "Theil's U")
   colnames(df.predicciones) <- c("Test", leyenda)
@@ -164,7 +170,21 @@ print(checkresiduals(fitARIMA.auto, plot = FALSE))
 ggtsdisplay(residuals(fitARIMA.auto))
 data.frame(cbind(round(accuracy(fitARIMA.auto), 3), "AIC" = AIC(fitARIMA.auto), "SBC" = BIC(fitARIMA.auto)))
 
-comparar.resultados(list(fitARIMA.1, fitARIMA.2, fitARIMA.auto), c("fitARIMA.1", "fitARIMA.2", "Modelo Auto-ARIMA"))
+fitARIMA.auto.2 <- auto.arima(transf.box.cox, seasonal = TRUE, allowdrift = FALSE)
+coeftest(fitARIMA.auto.2)
+print(checkresiduals(fitARIMA.auto.2, plot = FALSE))
+ggtsdisplay(residuals(fitARIMA.auto.2))
+data.frame(cbind(round(accuracy(fitARIMA.auto.2), 3), "AIC" = AIC(fitARIMA.auto.2), "SBC" = BIC(fitARIMA.auto.2)))
+
+
+estadisticas.2 <- rbind(cbind(round(accuracy(fitARIMA.2), 3), "AIC" = AIC(fitARIMA.2), "SBC" = BIC(fitARIMA.2), "p-valor (Lljung-Box)" = checkresiduals(fitARIMA.2, plot = FALSE)$p.value, "df" = checkresiduals(fitARIMA.2, plot = FALSE)$parameter),
+                      cbind(round(accuracy(fitARIMA.2.1), 3), "AIC" = AIC(fitARIMA.2.1), "SBC" = BIC(fitARIMA.2.1), "p-valor (Lljung-Box)" = checkresiduals(fitARIMA.2.1, plot = FALSE)$p.value, "df" = checkresiduals(fitARIMA.2.1, plot = FALSE)$parameter),
+                      cbind(round(accuracy(fitARIMA.auto), 3), "AIC" = AIC(fitARIMA.auto), "SBC" = BIC(fitARIMA.auto), "p-valor (Lljung-Box)" = checkresiduals(fitARIMA.auto, plot = FALSE)$p.value, "df" = checkresiduals(fitARIMA.auto, plot = FALSE)$parameter),
+                      cbind(round(accuracy(fitARIMA.auto), 3), "AIC" = AIC(fitARIMA.auto.2), "SBC" = BIC(fitARIMA.auto.2), "p-valor (Lljung-Box)" = checkresiduals(fitARIMA.auto.2, plot = FALSE)$p.value, "df" = checkresiduals(fitARIMA.auto.2, plot = FALSE)$parameter))
+rownames(estadisticas.2) <- c("ARIMA (2,1,3) (0,1,1)", "ARIMA (2,1,3) (2,1,0)", "auto ARIMA (drift)", "auto ARIMA (no drift)")
+estadisticas.2
+
+comparar.resultados(list(fitARIMA.2, fitARIMA.2.1, fitARIMA.auto, fitARIMA.auto.2), c("ARIMA (2,1,3) (0,1,1)", "ARIMA (2,1,3) (2,1,0)", "auto ARIMA (drift)", "auto ARIMA (no drift)"), c("red", "blue", "purple4", "chartreuse4", "black"))
 
 # Recuperamos los coeficientes del modelo ganador
 coef(fitARIMA.2)
@@ -208,8 +228,6 @@ autoplot(ventas.ropa.test) +
 
 cbind(ventas.ropa.test, "Modelo ARIMA Final" = prediccion$mean, "Modelo Holt-Winters" = ventas.ropa.hw$mean)
 cbind(ventas.ropa.test, "Modelo ARIMA Final (dif)" = prediccion$mean - ventas.ropa.test, "Modelo Holt-Winters (dif)" =  ventas.ropa.hw$mean - ventas.ropa.test)
-
-comparar.resultados(list(fitARIMA.2, ventas.ropa.hw), c("Modelo ARIMA Final", "Alisado Holt-Winters"))
 
 # Comparamos tanto las estadisticas de cada modelo...
 data.frame(cbind(round(accuracy(prediccion, ventas.ropa.test), 3), "AIC" = AIC(fitARIMA.2), "SBC" = BIC(fitARIMA.2)))

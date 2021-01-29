@@ -1,0 +1,298 @@
+---
+title: "Minería de Datos y Modelización Predictiva (IV)"
+author: "Fernández Hernández, Alberto. 54003003S"
+date: "1/29/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE, include=FALSE}
+library(readxl)
+library(forecast)
+library(ggplot2)
+library(tidyquant)
+library(gridExtra)
+library(lmtest)
+library(reshape2)
+```
+\small
+# 1. Introducción. Presentación de la serie a analizar
+
+El objetivo del presente proyecto consiste en el análisis y modelado predictivo de una serie temporal con la __estimación de ventas mensuales en tiendas de ropa en Estados Unidos__, conocido como _Monthly Retail Sales_. Los datos han sido obtenidos del repositorio de Investigación Económica de la Reserva Federal del Banco de Saint Louis. [^1]
+
+[^1]: https://fred.stlouisfed.org/series/MRTSSM4481USN
+
+```{r}
+ventas.ropa <- read_excel("retail_sales.xls")
+```
+```{r, include=FALSE}
+ventas.ropa$observation_date <- format(as.Date(ventas.ropa$observation_date), "%Y-%m")
+```
+
+El fichero de datos contiene un total de dos variables: _observation_date_, con la fecha de estimación, así como las ventas o _sales_ (en millones de dólares). Dicho conjunto abarca un total de 168 observaciones mensuales, __desde enero del año 2006 hasta diciembre del año 2019__:
+
+```{r}
+min(ventas.ropa$observation_date) # Fecha min: Enero 2006
+max(ventas.ropa$observation_date) # Fecha max: Diciembre 2019
+
+# Analizamos las 6 primeras filas
+head(ventas.ropa)
+```
+
+Por otro lado, analizando brevemente las estadísticas de ventas podemos comprobar que __existe un cierto contraste en los valores de ventas mínimo y máximo__. A modo de ejemplo, el valor de la mediana nos indica la presencia de meses en los que las ventas se sitúan por debajo de los 20 mil millones de dólares, situación contraria en otros meses, donde la estimación de ventas aumenta considerablemente, hasta llegar incluso a los 34 mil millones (valor máximo). No obstante, con tan solo el _summary_ no podemos aventurarnos a asegurar que la componente presenta estacionalidad, con valores mínimos y máximos de ventas anuales, por lo que necesitaremos la representación gráfica para comprobarlo.
+
+```{r}
+summary(ventas.ropa$sales)
+```
+
+# 2. Representación gráfica y descomposición de la serie
+
+De forma previa a los modelos predictivos, debemos representar gráficamente la serie temporal con el objetivo de estudiar su características como estacionalidad, tendencia y estacionariedad:
+
+```{r, fig.height=4, out.width = "11in"}
+ventas.ropa.ts <- ts(ventas.ropa[,-1], start=c(2006,1), frequency=12)
+ventas.ropa.test <- window(ventas.ropa.ts,start=c(2019,1), end=c(2019,12))
+autoplot(ventas.ropa.ts) +  ggtitle("Ingresos por ventas en ropa") +
+  xlab("Mes-Año") +  ylab("Millones de dólares")
+```
+
+Analizando la serie temporal, podemos extraer varias características: en primer lugar, la serie comienza con un decrecimiento en los ingresos desde el año 2006 hasta el año 2010, aproximadamente. A continuación, __la tendencia es prácticamente ascendente (media no constante)__ hasta prácticamente el año 2019, momento en el que parece estabilizarse la serie. En relación con la varianza, tampoco es constante, presentando un aumento en la variabilidad de las ventas a lo largo de los años, tal y como podemos comprobar en el gráfico de la serie, donde la amplitud entre los valores de venta mínimo y máximo aumentan con el transcurso de los años, es decir, desde el año 2009-2010 existe cada vez un mayor constraste entre periodos donde se acentúan las ventas y momentos en los que se reduce al mínimo. Por tanto, dando que la varianza aumenta con el tiempo, __la serie presenta un esquema multiplicativo__.
+
+Por otro lado, si analizamos la descomposición de la serie, podemos evidenciar tanto la tendencia ascendente desde el año 2009-2010 como el aumento de la varianza con el paso de los años:
+
+```{r, fig.height=4, out.width = "11in"}
+ventas.ropa.comp<- decompose(ventas.ropa.ts,type=c("multiplicative"))
+autoplot(ventas.ropa.comp)
+```
+
+Así como la tendencia claramente ascendente en el número de ventas, pasando de una media de más de 15.000 millones de dólares en el año 2010 a más de 20.000 millones en el año 2019:
+
+```{r, echo=FALSE, warning=FALSE}
+autoplot(ventas.ropa.ts, series="Datos") +
+autolayer(trendcycle(ventas.ropa.comp), series="Tendencia") + autolayer(seasadj(ventas.ropa.comp), series="Estacionalmente ajustada") + 
+  xlab("Mes-Año") + ylab("Millones de dólares") +
+  ggtitle("Ingresos por ventas en ropa") + scale_colour_manual(values=c("gray","blue","red"),
+                                                        breaks=c("Datos","Estacionalmente ajustada","Tendencia")) + theme(legend.position="bottom")
+```
+
+Por otro lado, cabe destacar la estacionalidad que se produce anualmente, donde un mes (probablemente diciembre) concentra el mayor número de ventas, mientras que en el mes siguiente (enero) los ingresos se reducen al mínimo. De hecho, si analizamos los valores de la componente estacional:
+
+```{r}
+comp.est <- data.frame(t(ventas.ropa.comp$seasonal[c(1:12)]))
+```
+```{r, echo=FALSE}
+colnames(comp.est) <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+print(round(comp.est,3), row.names = F)
+```
+
+Efectivamente, observamos que __los ingresos por ventas en ropa son un 57.8 % superior a la media anual__, mientras que __los meses de enero y febrero concentran los porcentajes más bajos de ventas, con un 25.5 y un 14.9 % inferior en relación a la media anual, respectivamente__. Por otro lado, si analizamos las tendencias anuales:
+
+```{r, echo=FALSE, fig.height=4, out.width = "11in"}
+ggseasonplot(ventas.ropa.ts, year.labels=FALSE, cex.lab=0.5) + ylab("Número") + ggtitle("Seasonal plot: ingresos por ventas en ropa")
+```
+
+Podemos comprobar, nuevamente, la tendencia ascendente de los ingresos por ventas en ropa con el transcurso del tiempo, siendo los últimos años, 2018 y 2019, los que presentan el mayor número de ingresos.
+
+Una vez realizado el primer análisis de la serie, de cara a los modelos tanto de suavizado exponencial como ARIMA __reservaremos los últimos datos observados (dado que la estacionalidad es anual escogemos los ingresos del año 2019)__ como conjunto de prueba para comprobar la eficacia de los métodos de predicción:
+
+```{r}
+ventas.ropa.ts.transformado <- window(ventas.ropa.ts,start=c(2006,1),end=c(2018,12))
+ventas.ropa.test <- window(ventas.ropa.ts,start=c(2019,1), end=c(2019,12))
+```
+
+# 3. Modelo de suavizado exponencial
+Para determinar el mejor modelo de suavizado exponencial, realizamos una comparación de la precisión entre los diferentes modelos, tanto de alisado simple, doble, como de _Holt-Winters_. Dado que el conjunto de prueba empleado contiene los ingresos por venta del año 2019, la predicción calculada será para los siguientes 12 meses (h = 12). En el caso del modelo de _Holt-Winters_, dado que la serie es multiplicativa, debemos indicarlo a través del parámetro _seasonal_:
+
+```{r}
+ventas.ropa.ss <- ses(ventas.ropa.ts.transformado, h=12) # Alisado simple
+ventas.ropa.holt <- holt(ventas.ropa.ts.transformado, h=12) # Alisado doble (Holt)
+ventas.ropa.hw <- hw(ventas.ropa.ts.transformado, h=12, seasonal="multiplicative") # Alisado Holt-Winters
+estadisticas.suavizado <- rbind(round(accuracy(ventas.ropa.ss),3), round(accuracy(ventas.ropa.holt),3),
+                          round(accuracy(ventas.ropa.hw),3))
+```
+
+```{r, echo=FALSE}
+rownames(estadisticas.suavizado) <- c("Alisado Simple", "Alisado Doble", "Holt-Winters")
+knitr::kable(cbind(estadisticas.suavizado, "AIC" = c(ventas.ropa.ss$model$aic, ventas.ropa.holt$model$aic, ventas.ropa.hw$model$aic), "BIC" = c(ventas.ropa.ss$model$bic, ventas.ropa.holt$model$bic, ventas.ropa.hw$model$bic)), format = "latex", caption = "Precisión de los modelos de suavizado")
+```
+
+```{r, echo=FALSE, fig.width=11, fig.height=7, out.width="7.2in", fig.align='center'}
+alisado.simple <- autoplot(ventas.ropa.ss) + 
+  autolayer(fitted(ventas.ropa.ss), series="Fitted") + 
+  ylab("Millones de millas") + xlab("Año") + ggtitle("Suavizado exponencial simple")
+alisado.holt <- autoplot(ventas.ropa.holt) + 
+  autolayer(fitted(ventas.ropa.holt), series="Fitted") + 
+  ylab(NULL) + xlab("Año") + ggtitle("Suavizado exponencial doble")
+alisado.hw <- autoplot(ventas.ropa.hw) + 
+  autolayer(fitted(ventas.ropa.hw), series="Fitted") + 
+  ylab(NULL) + xlab("Año") + ggtitle("Holt-Winters")
+ggpubr::ggarrange(ggpubr::ggarrange(alisado.simple, alisado.holt, ncol = 2, legend = "none"), alisado.hw, nrow = 2, common.legend = TRUE, legend = "bottom")
+```
+
+Analizando tanto la tabla como la salida gráfica, sin duda alguna __el método _Holt-Winters_ ofrece un mejor modelo prácticamente en todos los sentidos__, desde los errores medios más bajos hasta valores AIC y BIC significativamente menores en comparación con los modelos de alisado simple y doble (2796 y 2848, respectivamente). Por otro lado, la salida gráfica evidencia la clara ventaja del modelo _Holt-Winters_: mientras que el modelo de alisado simple devuelve la misma predicción para los siguientes 12 meses y el modelo de alisado doble realiza una predicción meramente lineal, el método de _Holt-Winters_ se aproxima en mejor medida a los valores de la serie original, lo que se traduce además en intervalos de confianza más cerrados, tal y como podemos comprobar en los gráficos anteriores.
+
+Por tanto, dado el menor error, AIC y BIC obtenido, así como una mejor aproximación a la serie original, __elegimos como modelo ganador al obtenido por el método de _Holt-Winters___:
+
+```{r}
+ventas.ropa.hw
+ventas.ropa.hw$model$par[1:3] # Obtenemos los parametros alpha, beta y gamma
+```
+
+En base a los parámetros alfa, beta y gamma obtenidos, y dado que se trata de un modelo multiplicativo, la expresión del modelo final es la siguiente:
+
+$$
+L_t = 0.2796 \frac{x_t}{S_{t-s}} + (1-0.2796) (L_{t-1}+b_{t-1})
+$$
+$$
+b_t = 0.0531 (L_t-L_{t-1}) + (1-0.0531) b_{t-1}
+$$
+$$
+S_t = 0.3207 \frac{x_t}{L_t} + (1 - 0.3207) S_{t-s}
+$$
+$$
+\hat{x}_{t+1} = (L_t + b_t)S_{t+1-s}
+$$
+
+Donde $L_t$ representa la componente de nivel de la serie temporal, $b_t$ la tendencia y $S_t$ la estacionalidad.
+
+# 4. Modelo ARIMA
+## 4.1 Transformaciones de la serie temporal
+De forma previa a la elaboración del modelo ARIMA, así como a las funciones de autocorrelación y autocorrelación parcial, cabe recordar que la serie original __no es estacionaria en cuanto a varianza se refiere__, por lo que debemos comprobar si es posible, por medio de transformaciones Box-Cox, estabilizar dicha variabilidad. Como primera opción, realizamos una de las más comunes: la logarítmica (es decir, $\lambda = 0$).
+
+```{r, echo=FALSE}
+var.max.original <- apply(matrix(ventas.ropa.ts.transformado, ncol = 12, byrow = TRUE), 1, FUN=max)
+var.min.original <- apply(matrix(ventas.ropa.ts.transformado, ncol = 12, byrow = TRUE), 1, FUN=min)
+```
+```{r}
+serie.temp.original <- autoplot(ventas.ropa.ts.transformado)
+transf.box.cox <-  log(ventas.ropa.ts.transformado)
+serie.temp.log <- autoplot(transf.box.cox)
+```
+```{r, echo=FALSE, fig.height=4, fig.width=8}
+var.max.log <- apply(matrix(transf.box.cox, ncol = 12, byrow = TRUE), 1, FUN=max)
+var.min.log <- apply(matrix(transf.box.cox, ncol = 12, byrow = TRUE), 1, FUN=min)
+serie.temp.original +  ggtitle("Ingresos por ventas en ropa") +
+  xlab("Mes-Año") +  ylab("Millones de dólares") + geom_line(data = data.frame(x = serie.temp.original$data[which(serie.temp.original$data$y %in% var.max.original), 2], y = var.max.original), color = "red", linetype = "dashed") +
+  geom_line(data = data.frame(x = serie.temp.original$data[which(serie.temp.original$data$y %in% var.min.original), 2], y = var.min.original), color = "red", linetype = "dashed")
+
+serie.temp.log +  ggtitle("Ingresos por ventas en ropa  (log)") +
+  xlab("Mes-Año") +  ylab("Millones de dólares (log)")  + geom_line(data = data.frame(x = serie.temp.log$data[which(serie.temp.log$data$y %in% var.max.log), 2], y = var.max.log), color = "red", linetype = "dashed") +
+  geom_line(data = data.frame(x = serie.temp.log$data[which(serie.temp.log$data$y %in% var.min.log), 2], y = var.min.log), color = "red", linetype = "dashed")
+```
+
+Como podemos observar en ambos gráfico, la transformación logarítmica __parece estabilizar la variabilidad de la serie, especialmente a partir del año 2010__, donde el crecimiento de la varianza ya no es tan significativo en comparación con la serie original, aunque conservando su tendencia ascendente.
+Por otro lado, la librería _forecast_ dispone de una función denominada _BoxCox.lambda_ que permite obtener el coeficiente _lambda_ óptimo para la transformación de la serie. Dispone de dos métodos: _loglik_, que elige el valor de _lambda_ que maximice la verosimilitud de la transformada con respecto a un modelo lineal; y _guerrero_, que escoge el parámetro _lambda_ que minimice el coeficiente de variación para cada una de las sub-series del conjunto de datos. En caso de que $\lambda$ sea 1, implicaría que la transformación no es necesaría:
+
+```{r}
+BoxCox.lambda(ventas.ropa.ts.transformado, method = "guerrero")
+BoxCox.lambda(ventas.ropa.ts.transformado, method = "loglik")
+```
+
+Como podemos observar, el valor de _lambda_ en ambos casos es más cercano a 0 (0.36 y 0.05, respectivamente), __lo que evidencia nuevamente la necesidad de transformar la serie original__. No obstante, se han comparado gráficamente la serie transformada logarítmica con las series obtenidas a partir de los valores _lambda_ anteriores, pero la diferencia no es muy significativa, por lo que en adelante se ha decido trabajar con la serie logarítimica.
+
+## 4.2 Funciones de autocorrelación y autocorrelación parcial
+Una vez transformada la serie temporal, representamos gráficamente tanto la función de autocorrelación como de autocorrelación parcial, con el objetivo no solo de comprobar si la serie es o no estacionaria, sino además para determinar el tipo de modelo en función de los retardos que son significativamente distintos de cero. Dado que la serie presenta estacionalidad anual, se ha decido calcular las autocorrelaciones hasta el retardo 48, es decir, hasta 4 años:
+
+```{r, eval=FALSE}
+ggAcf(transf.box.cox, lag = 48) # Funcion de Autocorrelacion
+ggPacf(transf.box.cox, lag = 48) # Funcion de Autocorrelacion Parcial
+```
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5.5, fig.align='center'}
+ggpubr::ggarrange(ggAcf(transf.box.cox, lag = 48),
+                  ggPacf(transf.box.cox, lag = 48), ncol = 2)
+```
+
+En los primeros pasos, debemos fijarnos sobretodo en la Función de Autocorrelación. En ella, detectamos la estacionalidad mencionada en los primeros apartados: por un lado, existe un patrón de autocorrelación que se repite anualmente y disminuye conforme aumentan los retardos. De hecho, el decrecimiento lento se aprecia mejor en los __retardos múltiplos de la estacionalidad__: 12, 24, 36 y 48, indicativo de que la serie presenta estacionalidad y no es estacionaria. Por tanto, para eliminar dicha estacionalidad __debemos aplicar una diferenciación de orden 12 (anual)__:
+
+```{r, eval=FALSE}
+ggAcf(diff(transf.box.cox, 12), lag = 48) # Funcion de Autocorrelacion
+ggPacf(diff(transf.box.cox, 12), lag = 48) # Funcion de Autocorrelacion Parcial
+```
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5.5, fig.align='center'}
+ggpubr::ggarrange(ggAcf(diff(transf.box.cox, 12), lag = 48),
+                  ggPacf(diff(transf.box.cox, 12), lag = 48), ncol = 2)
+```
+
+Una vez aplicada la diferenciación estacional, la serie continúa sin ser estacionaria, principalmente por un motivo: __sigue exitiendo un decrecimiento lento de los valores de autocorrelación__, tal y como podemos observar en la función ACF, es decir, la media no es constante. Una forma de comprobarlo sería gráficamente:
+
+```{r, fig.width=10, fig.height=5.5, fig.align='center'}
+autoplot(diff(transf.box.cox, 12)) +  ggtitle("Ingresos por ventas en ropa (log)") +
+  xlab("Mes-Año") +  ylab("Millones de dólares (log)")
+```
+
+Como podemos comprobar nuevamente, la estacionalidad anual se ha visto reducida considerablemente. No obstante, debido al decrecimiento en el número de ventas ocasionado entre los años 2007-2010 (periodo de recesión económica), provoca que la media no sea constante y, por tanto, __no podemos asegurar que la serie sea estacionaria en sentido débil__: si escojo dos series en cualquier instante de tiempo, sus medias y varianzas deberán ser constantes, pero el decrecimiento producido entre estos años lo impide. Además, incluso contrastes de hipótesis como el _kpss_ __rechazan la hipótesis nula de que la serie es estacionaria alrededor de una tendencia determinista__:
+
+```{r}
+tseries::kpss.test(diff(transf.box.cox, 12), null = "Trend") # null = Hipotesis nula
+```
+
+En el caso anterior, el p-valor obtenido es de 0.027, significativamente inferior a 0.05, por lo que rechazamos (al 95 % de confianza) la hipótesis nula de que la serie sea estacionaria en media. Por tanto, debemos aplicar una diferenciación a la componente regular de la serie:
+
+```{r, eval=FALSE}
+ggAcf(diff(diff(transf.box.cox, 12)), lag = 48) # Funcion de Autocorrelacion
+ggPacf(diff(diff(transf.box.cox, 12)), lag = 48) # Funcion de Autocorrelacion Parcial
+```
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5.5, fig.align='center'}
+ggpubr::ggarrange(ggAcf(diff(diff(transf.box.cox, 12)), lag = 48),
+                  ggPacf(diff(diff(transf.box.cox, 12)), lag = 48), ncol = 2)
+```
+
+Como podemos comprobar, hemos conseguido eliminar "parcialmente" el decrecimiento de los retardos en la función de Autocorrelación. No obstante, pese a la diferenciación aplicada, continúa existiendo un decaimiento lento en los valores de autocorrelación. Por tanto, ¿Y si aplicamos una diferenciación de orden 2 a la parte regular para eliminar dicho decrecimiento? Analicemos el resultado, __comparando ambas funciones de autocorrelación, tanto con una diferenciación de orden 1 como de orden 2 en la parte regular__. Para ello, se ha elaborado una función denominada _comparar.autocorrelaciones_, que recibe como parámetros las series a utilizar, el tipo de función de autocorrelación a mostrar (ACF o PACF), así como el título del gráfico (empleando las funciones de _ggplot2_):
+
+```{r, echo=FALSE}
+comparar.autocorrelaciones <- function(datos.1, datos.2, tipo, titulo) {
+  if(tipo == "acf") {
+    acf1 <- acf(datos.1, plot = F, lag.max = 48)
+    acf2 <- acf(datos.2, plot = F, lag.max = 48)
+  } else {
+    acf1 <- pacf(datos.1, plot = F, lag.max = 48)
+    acf2 <- pacf(datos.2, plot = F, lag.max = 48)
+  }
+  df<- data.frame(lag = acf1$lag,acf1=acf1$acf,acf2=acf2$acf)
+  colnames(df)<-c("lag","1 Dif. Regular","2 Dif. Regulares")
+  data<-melt(df,id="lag")
+  
+  ggplot() + geom_bar(data=data[data$variable=="1 Dif. Regular",], aes(x = lag, y = value, 
+                                                                         fill = variable), stat = "identity") +
+    geom_bar(data=data[data$variable=="2 Dif. Regulares",],
+             aes(x = lag, y = value, fill=variable), position = "dodge", stat = "identity") + 
+    ggtitle(titulo) +
+    scale_fill_manual("legend", values = c("1 Dif. Regular" = "royalblue1", "2 Dif. Regulares" = "tomato1"))
+}
+```
+```{r, eval=FALSE}
+comparar.autocorrelaciones(diff(diff(transf.box.cox, 12)), # Funcion de Autocorrelacion
+                           diff(diff(diff(transf.box.cox, 12))), tipo = "acf", "Comparación entre ACFs")
+comparar.autocorrelaciones(diff(diff(transf.box.cox, 12)), # Funcion de Autocorrelacion Parcial
+                           diff(diff(diff(transf.box.cox, 12))), tipo = "pacf", "Comparación entre PACFs")
+```
+```{r, echo=FALSE, warning=FALSE, fig.width=10.5, fig.height=5, fig.align='center'}
+ggpubr::ggarrange(comparar.autocorrelaciones(diff(diff(transf.box.cox, 12)),
+                           diff(diff(diff(transf.box.cox, 12))), tipo = "acf", "Comparación entre ACFs"),
+                  comparar.autocorrelaciones(diff(diff(transf.box.cox, 12)),
+                           diff(diff(diff(transf.box.cox, 12))), tipo = "pacf", "Comparación entre PACFs"), ncol = 2, common.legend = TRUE, legend = "bottom")
+```
+
+Pese a aplicar una diferenciación adicional, los valores de autocorrelación no se han visto prácticamente afectados: en el diagrama de barras de la izquierda podemos comprobar que tan solo ve reducida la correlación en un pequeño subconjunto de retardos (donde la barra en rojo es menor a la barra azul). En el resto de casos, la autocorrelación no ha disminuido.
+Con respecto a la función de autocorrelación parcial, bien es cierto que muchas de las autocorrelaciones se ven reducidas. Sin embargo, debemos destacar una importante diferencia en la función de autocorrelación parcial: __mientras que con una diferenciación regular tan solo son los dos primeros retardos son significativos, con dos diferenciaciones el número aumenta hasta 5__. Además, incluso si comparamos ambas series observamos un gran contraste en la varianza, con una variabilidad mucho mayor empleando dos diferenciaciones:
+
+```{r, echo=FALSE, warning=FALSE, fig.width=10.5, fig.height=5, fig.align='center'}
+autoplot(diff(diff(diff(transf.box.cox, 12))), series = "2 Dif. Regulares", size = 0.75)  +
+  xlab("Mes-Año") +  ylab("Millones de dólares (log)") + autolayer(diff(diff(transf.box.cox, 12)), series = "1 Dif. Regular", size = 0.75) +
+  ggtitle("Ingresos por ventas en ropa (comparacion entre diferenciaciones)") +
+  scale_fill_manual("legend")
+```
+
+Por tanto, dado que una diferenciación de orden 2 no reduce el decrecimiento en la función de autocorrelación parcial, además de aumentar incluso la variabilidad en la serie, optamos por una única diferenciación en la parte regular. 
+
+## 4.3 Selección de los parámetros del modelo
+Una aplicadas las diferenciaciones, ya tenemos los coeficientes _d_ y _D_ del modelo ARIMA (1). Por tanto, debemos ajustar el resto de parámetros (autoregresivo y media móvil) tanto de la componente regular como estacional. Regresemos nuevamente con las funciones de autocorrelación y autocorrelación parcial:
+
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5, fig.align='center'}
+ggpubr::ggarrange(ggAcf(diff(diff(transf.box.cox, 12)), lag = 48),
+                  ggPacf(diff(diff(transf.box.cox, 12)), lag = 48), ncol = 2)
+```
+
