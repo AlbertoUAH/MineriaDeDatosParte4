@@ -1,14 +1,17 @@
 ---
 title: "Minería de Datos y Modelización Predictiva (IV)"
 author: "Fernández Hernández, Alberto. 54003003S"
-date: "1/29/2021"
-output: pdf_document
+date: "18/02/2021"
+output:
+  pdf_document:
+    toc: yes
+header-includes: \usepackage{float}
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.pos = 'H')
 ```
-
+\newpage
 ```{r, echo=FALSE, include=FALSE}
 library(readxl)
 library(forecast)
@@ -42,35 +45,45 @@ max(ventas.ropa$observation_date) # Fecha max: Diciembre 2019
 head(ventas.ropa)
 ```
 
-Por otro lado, analizando brevemente las estadísticas de ventas podemos comprobar que __existe un cierto contraste en los valores de ventas mínimo y máximo__. A modo de ejemplo, el valor de la mediana nos indica la presencia de meses en los que las ventas se sitúan por debajo de los 20 mil millones de dólares, situación contraria en otros meses, donde la estimación de ventas aumenta considerablemente, hasta llegar incluso a los 34 mil millones (valor máximo). No obstante, con tan solo el _summary_ no podemos aventurarnos a asegurar que la componente presenta estacionalidad, con valores mínimos y máximos de ventas anuales, por lo que necesitaremos la representación gráfica para comprobarlo.
+Por otro lado, analizando brevemente las estadísticas de ventas podemos comprobar que __existe un cierto contraste en los valores de ventas mínimo y máximo__. A modo de ejemplo, el valor de la mediana nos indica la presencia de meses en los que las ventas se sitúan por debajo de los 20 mil millones de dólares, situación contraria en otros meses, donde la estimación de ventas aumenta considerablemente, hasta llegar incluso a los 34 mil millones (valor máximo):
 
 ```{r}
 summary(ventas.ropa$sales)
 ```
 
+No obstante, con tan solo el _summary_ no podemos aventurarnos a asegurar que la componente presenta estacionalidad, con valores mínimos y máximos de ventas anuales, por lo que necesitaremos de la representación gráfica para comprobarlo.
+
 # 2. Representación gráfica y descomposición de la serie
 
-De forma previa a los modelos predictivos, debemos representar gráficamente la serie temporal con el objetivo de estudiar su características como estacionalidad, tendencia y estacionariedad:
+De forma previa a los modelos predictivos, debemos representar gráficamente la serie temporal con el objetivo de estudiar su características tales como estacionalidad, tendencia y estacionariedad:
 
-```{r, fig.height=4, out.width = "11in"}
+```{r, fig.height=3.5, out.width = "11in"}
 ventas.ropa.ts <- ts(ventas.ropa[,-1], start=c(2006,1), frequency=12)
 ventas.ropa.test <- window(ventas.ropa.ts,start=c(2019,1), end=c(2019,12))
 autoplot(ventas.ropa.ts) +  ggtitle("Ingresos por ventas en ropa") +
   xlab("Mes-Año") +  ylab("Millones de dólares")
 ```
 
-Analizando la serie temporal, podemos extraer varias características: en primer lugar, la serie comienza con un decrecimiento en los ingresos desde el año 2006 hasta el año 2010, aproximadamente. A continuación, __la tendencia es prácticamente ascendente (media no constante)__ hasta prácticamente el año 2019, momento en el que parece estabilizarse la serie. En relación con la varianza, tampoco es constante, presentando un aumento en la variabilidad de las ventas a lo largo de los años, tal y como podemos comprobar en el gráfico de la serie, donde la amplitud entre los valores de venta mínimo y máximo aumentan con el transcurso de los años, es decir, desde el año 2009-2010 existe cada vez un mayor constraste entre periodos donde se acentúan las ventas y momentos en los que se reduce al mínimo. Por tanto, dando que la varianza aumenta con el tiempo, __la serie presenta un esquema multiplicativo__.
+Analizando la serie temporal, podemos extraer varias características: en primer lugar, la serie comienza con un decrecimiento en los ingresos desde el año 2006 hasta el año 2010, aproximadamente. Desde entonces, __la tendencia es prácticamente ascendente (media no constante)__ hasta el año 2019 aproximadamente, momento en el que parece estabilizarse la serie. __En relación con la varianza, tampoco es constante__, presentando un aumento en la variabilidad de las ventas a lo largo de los años, tal y como podemos comprobar en el gráfico de la serie, donde la amplitud entre los valores de venta mínimo y máximo aumentan con el transcurso de los años, es decir, desde el año 2009-2010 existe cada vez un mayor constraste entre aquellos periodos donde se acentúa el número de ventas y momentos en los que se reduce al mínimo. 
 
-Por otro lado, si analizamos la descomposición de la serie, podemos evidenciar tanto la tendencia ascendente desde el año 2009-2010 como el aumento de la varianza con el paso de los años:
+Por último, podemos observar que el número de ventas __presenta una variación estacional que parece repetirse anualmente__, con puntos de máximo y mínimo número de ventas. En conclusión, como primer análisis podemos extraer características de la serie como:
 
-```{r, fig.height=4, out.width = "11in"}
+1. __Tendencia ascendente a partir del año 2010__.
+2. __Aumento de la varianza con el transcurso del tiempo__.
+3. __Estacionalidad anual en las ventas__.
+
+Por tanto, y en relación con las dos primeras características anteriores, podemos decir que __la serie presenta un esquema multiplicativo__.
+
+Por otro lado, si analizamos la descomposición de la serie, podemos evidenciar tanto la tendencia ascendente desde el año 2009-2010, el aumento de la varianza con el paso de los años, así como la estacionalidad que presenta anualmente, donde los puntos con mayor número de ventas parecen corresponder con los meses de diciembre (ya que el "pico" de ingresos se sitúa al final de cada año), mientras que el instante inmediatamente posterior (posiblemente enero) es el mes con menor número de ingresos:
+
+```{r, fig.height=3.5, out.width = "11in"}
 ventas.ropa.comp<- decompose(ventas.ropa.ts,type=c("multiplicative"))
 autoplot(ventas.ropa.comp)
 ```
 
-Así como la tendencia claramente ascendente en el número de ventas, pasando de una media de más de 15.000 millones de dólares en el año 2010 a más de 20.000 millones en el año 2019:
+Nuevamente, observamos la tendencia claramente ascendente en el número de ventas a partir de la serie estacionalmente ajustada, pasando de una media de más de 15.000 millones de dólares en el año 2010 a más de 20.000 millones en el año 2019, año en el que el crecimiento comienza a dejar de ser lineal:
 
-```{r, echo=FALSE, warning=FALSE}
+```{r, echo=FALSE, warning=FALSE, fig.height=4}
 autoplot(ventas.ropa.ts, series="Datos") +
 autolayer(trendcycle(ventas.ropa.comp), series="Tendencia") + autolayer(seasadj(ventas.ropa.comp), series="Estacionalmente ajustada") + 
   xlab("Mes-Año") + ylab("Millones de dólares") +
@@ -78,7 +91,7 @@ autolayer(trendcycle(ventas.ropa.comp), series="Tendencia") + autolayer(seasadj(
                                                         breaks=c("Datos","Estacionalmente ajustada","Tendencia")) + theme(legend.position="bottom")
 ```
 
-Por otro lado, cabe destacar la estacionalidad que se produce anualmente, donde un mes (probablemente diciembre) concentra el mayor número de ventas, mientras que en el mes siguiente (enero) los ingresos se reducen al mínimo. De hecho, si analizamos los valores de la componente estacional:
+En relación con la estacionalidad, si analizamos los valores de la componente estacional:
 
 ```{r}
 comp.est <- data.frame(t(ventas.ropa.comp$seasonal[c(1:12)]))
@@ -88,15 +101,15 @@ colnames(comp.est) <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", 
 print(round(comp.est,3), row.names = F)
 ```
 
-Efectivamente, observamos que __los ingresos por ventas en ropa son un 57.8 % superior a la media anual__, mientras que __los meses de enero y febrero concentran los porcentajes más bajos de ventas, con un 25.5 y un 14.9 % inferior en relación a la media anual, respectivamente__. Por otro lado, si analizamos las tendencias anuales:
+Efectivamente, observamos que __los ingresos por ventas en ropa en el mes de diciembre son un 57.8 % superior a la media anual__, mientras que __los meses de enero y febrero concentran los porcentajes más bajos de ventas, con un 25.5 y un 14.9 % inferior en relación a la media anual, respectivamente__. Por otro lado, si analizamos las tendencias anuales:
 
 ```{r, echo=FALSE, fig.height=4, out.width = "11in"}
 ggseasonplot(ventas.ropa.ts, year.labels=FALSE, cex.lab=0.5) + ylab("Número") + ggtitle("Seasonal plot: ingresos por ventas en ropa")
 ```
 
-Podemos comprobar, nuevamente, la tendencia ascendente de los ingresos por ventas en ropa con el transcurso del tiempo, siendo los últimos años, 2018 y 2019, los que presentan el mayor número de ingresos.
+Podemos comprobar, nuevamente, la tendencia ascendente de los ingresos por ventas en ropa con el transcurso del tiempo, siendo los últimos años, 2018 y 2019, los que presentan el mayor número de ingresos prácticamente en todos los meses.
 
-Una vez realizado el primer análisis de la serie, de cara a los modelos tanto de suavizado exponencial como ARIMA __reservaremos los últimos datos observados (dado que la estacionalidad es anual escogemos los ingresos del año 2019)__ como conjunto de prueba para comprobar la eficacia de los métodos de predicción:
+Una vez realizado el primer análisis de la serie, de cara a los modelos tanto de suavizado exponencial como ARIMA __reservaremos los últimos 12 datos observados como conjunto de prueba para comprobar la eficacia de los métodos de predicción__ (dado que la estacionalidad es anual, escogemos el último periodo, correspondiente a los ingresos del año 2019):
 
 ```{r}
 ventas.ropa.ts.transformado <- window(ventas.ropa.ts,start=c(2006,1),end=c(2018,12))
@@ -110,13 +123,13 @@ Para determinar el mejor modelo de suavizado exponencial, realizamos una compara
 ventas.ropa.ss <- ses(ventas.ropa.ts.transformado, h=12) # Alisado simple
 ventas.ropa.holt <- holt(ventas.ropa.ts.transformado, h=12) # Alisado doble (Holt)
 ventas.ropa.hw <- hw(ventas.ropa.ts.transformado, h=12, seasonal="multiplicative") # Alisado Holt-Winters
-estadisticas.suavizado <- rbind(round(accuracy(ventas.ropa.ss),3), round(accuracy(ventas.ropa.holt),3),
-                          round(accuracy(ventas.ropa.hw),3))
+estadisticas.suavizado <- rbind(round(accuracy(ventas.ropa.ss),3),
+                                round(accuracy(ventas.ropa.holt),3), round(accuracy(ventas.ropa.hw),3))
 ```
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align='center'}
 rownames(estadisticas.suavizado) <- c("Alisado Simple", "Alisado Doble", "Holt-Winters")
-knitr::kable(cbind(estadisticas.suavizado, "AIC" = c(ventas.ropa.ss$model$aic, ventas.ropa.holt$model$aic, ventas.ropa.hw$model$aic), "BIC" = c(ventas.ropa.ss$model$bic, ventas.ropa.holt$model$bic, ventas.ropa.hw$model$bic)), format = "latex", caption = "Precisión de los modelos de suavizado")
+knitr::kable(cbind(estadisticas.suavizado, "AIC" = c(ventas.ropa.ss$model$aic, ventas.ropa.holt$model$aic, ventas.ropa.hw$model$aic), "BIC" = c(ventas.ropa.ss$model$bic, ventas.ropa.holt$model$bic, ventas.ropa.hw$model$bic))) %>% kableExtra::kable_styling(font_size = 9)
 ```
 
 ```{r, echo=FALSE, fig.width=11, fig.height=7, out.width="7.2in", fig.align='center'}
@@ -132,9 +145,9 @@ alisado.hw <- autoplot(ventas.ropa.hw) +
 ggpubr::ggarrange(ggpubr::ggarrange(alisado.simple, alisado.holt, ncol = 2, legend = "none"), alisado.hw, nrow = 2, common.legend = TRUE, legend = "bottom")
 ```
 
-Analizando tanto la tabla como la salida gráfica, sin duda alguna __el método _Holt-Winters_ ofrece un mejor modelo prácticamente en todos los sentidos__, desde los errores medios más bajos hasta valores AIC y BIC significativamente menores en comparación con los modelos de alisado simple y doble (2796 y 2848, respectivamente). Por otro lado, la salida gráfica evidencia la clara ventaja del modelo _Holt-Winters_: mientras que el modelo de alisado simple devuelve la misma predicción para los siguientes 12 meses y el modelo de alisado doble realiza una predicción meramente lineal, el método de _Holt-Winters_ se aproxima en mejor medida a los valores de la serie original, lo que se traduce además en intervalos de confianza más cerrados, tal y como podemos comprobar en los gráficos anteriores.
+Analizando tanto la tabla como la salida gráfica, sin duda alguna __el método _Holt-Winters_ ofrece un mejor modelo prácticamente en todos los sentidos__, desde los errores medios más bajos hasta valores AIC y BIC significativamente menores en comparación con los modelos de alisado simple y doble (2796 y 2848, respectivamente), __principalmente debido a que los modelos de _Holt-Winters_ se emplean para series que presentan tendencia y estacionalidad__, mientras que el modelo de alisado simple devuelve la misma predicción para los siguientes 12 meses (series sin tendencia y estacionalidad) y el modelo de alisado doble realiza una predicción meramente lineal (series con tendencia pero sin estacionalidad). Como consecuencia, __el método de _Holt-Winters_ se aproxima en mejor medida a los valores de la serie original__, lo que se traduce, además de un mejor ajuste en la predicción, en intervalos de confianza más cerrados, tal y como podemos comprobar en los gráficos anteriores.
 
-Por tanto, dado el menor error, AIC y BIC obtenido, así como una mejor aproximación a la serie original, __elegimos como modelo ganador al obtenido por el método de _Holt-Winters___:
+Por tanto, dado el menor error, AIC y BIC obtenido, así como una mejor aproximación al comportamiento de la serie original, __elegimos como modelo ganador al obtenido por el método de _Holt-Winters___:
 
 ```{r}
 ventas.ropa.hw
@@ -144,13 +157,13 @@ ventas.ropa.hw$model$par[1:3] # Obtenemos los parametros alpha, beta y gamma
 En base a los parámetros alfa, beta y gamma obtenidos, y dado que se trata de un modelo multiplicativo, la expresión del modelo final es la siguiente:
 
 $$
-L_t = 0.2796 \frac{x_t}{S_{t-s}} + (1-0.2796) (L_{t-1}+b_{t-1})
+L_t = 0.2796 \frac{x_t}{S_{t-s}} + (1-0.2796) (L_{t-1}+b_{t-1}) = 0.2796 \frac{x_t}{S_{t-s}} + 0.7204 (L_{t-1}+b_{t-1})
 $$
 $$
-b_t = 0.0531 (L_t-L_{t-1}) + (1-0.0531) b_{t-1}
+b_t = 0.0531 (L_t-L_{t-1}) + (1-0.0531) b_{t-1} = 0.0531 (L_t-L_{t-1}) + 0.9469 b_{t-1} 
 $$
 $$
-S_t = 0.3207 \frac{x_t}{L_t} + (1 - 0.3207) S_{t-s}
+S_t = 0.3207 \frac{x_t}{L_t} + (1 - 0.3207) S_{t-s} = 0.3207 \frac{x_t}{L_t} + 0.6793 S_{t-s} 
 $$
 $$
 \hat{x}_{t+1} = (L_t + b_t)S_{t+1-s}
@@ -160,7 +173,7 @@ Donde $L_t$ representa la componente de nivel de la serie temporal, $b_t$ la ten
 
 # 4. Modelo ARIMA
 ## 4.1 Transformaciones de la serie temporal
-De forma previa a la elaboración del modelo ARIMA, así como a las funciones de autocorrelación y autocorrelación parcial, cabe recordar que la serie original __no es estacionaria en cuanto a varianza se refiere__, por lo que debemos comprobar si es posible, por medio de transformaciones Box-Cox, estabilizar dicha variabilidad. Como primera opción, realizamos una de las más comunes: la logarítmica (es decir, $\lambda = 0$).
+De forma previa a la elaboración del modelo ARIMA, así como a las funciones de autocorrelación y autocorrelación parcial, cabe recordar que la serie original __no es estacionaria en cuanto a varianza se refiere__, por lo que debemos comprobar si es posible, por medio de transformaciones Box-Cox, estabilizar dicha variabilidad. Como primera opción, realizamos una de las más comunes: __la logarítmica__ (es decir, $\lambda = 0$).
 
 ```{r, echo=FALSE}
 var.max.original <- apply(matrix(ventas.ropa.ts.transformado, ncol = 12, byrow = TRUE), 1, FUN=max)
@@ -183,59 +196,68 @@ serie.temp.log +  ggtitle("Ingresos por ventas en ropa  (log)") +
   geom_line(data = data.frame(x = serie.temp.log$data[which(serie.temp.log$data$y %in% var.min.log), 2], y = var.min.log), color = "red", linetype = "dashed")
 ```
 
-Como podemos observar en ambos gráfico, la transformación logarítmica __parece estabilizar la variabilidad de la serie, especialmente a partir del año 2010__, donde el crecimiento de la varianza ya no es tan significativo en comparación con la serie original, aunque conservando su tendencia ascendente.
-Por otro lado, la librería _forecast_ dispone de una función denominada _BoxCox.lambda_ que permite obtener el coeficiente _lambda_ óptimo para la transformación de la serie. Dispone de dos métodos: _loglik_, que elige el valor de _lambda_ que maximice la verosimilitud de la transformada con respecto a un modelo lineal; y _guerrero_, que escoge el parámetro _lambda_ que minimice el coeficiente de variación para cada una de las sub-series del conjunto de datos. En caso de que $\lambda$ sea 1, implicaría que la transformación no es necesaría:
+Como podemos observar en ambos gráficos, la transformación logarítmica __parece estabilizar la variabilidad de la serie, especialmente a partir del año 2010__, donde el aumento de la amplitud de la varianza ya no es tan significativa en comparación con la serie original, aunque conserva su tendencia ascendente.
+Por otro lado, la librería _forecast_ dispone de una función denominada _BoxCox.lambda_ que permite obtener el coeficiente _lambda_ óptimo para la transformación de la serie. Dispone de dos métodos: _loglik_, que elige el valor de _lambda_ que maximice la verosimilitud de la transformada con respecto a un modelo lineal; y _guerrero_, que escoge el parámetro _lambda_ que minimice el coeficiente de variación para cada una de las sub-series del conjunto de datos. En caso de que $\lambda$ sea 1, implicaría que la transformación no es necesaria:
 
 ```{r}
 BoxCox.lambda(ventas.ropa.ts.transformado, method = "guerrero")
 BoxCox.lambda(ventas.ropa.ts.transformado, method = "loglik")
 ```
 
-Como podemos observar, el valor de _lambda_ en ambos casos es más cercano a 0 (0.36 y 0.05, respectivamente), __lo que evidencia nuevamente la necesidad de transformar la serie original__. No obstante, se han comparado gráficamente la serie transformada logarítmica con las series obtenidas a partir de los valores _lambda_ anteriores, pero la diferencia no es muy significativa, por lo que en adelante se ha decido trabajar con la serie logarítimica.
+Como podemos observar, el valor de _lambda_ en ambos casos es más cercano a 0 (0.36 y 0.05, respectivamente), __lo que evidencia nuevamente la necesidad de transformar la serie original__. De hecho, el propio método _loglik_ sugiere un valor de _lambda_ muy cercano a 0 (0.05), correspondiente con la transformada logarítmica. No obstante, se han comparado gráficamente la serie logarítmica junto con las series transformadas a partir de los valores _lambda_ anteriores (0.36 y 0.05), pero la diferencia no entre ambas no es muy significativa. Por tanto, dado que la transformada logarítmica permite estabilizar en gran medida la varianza de la serie, además de que los valores _lambda_ obtenidos mediante la función _BoxCox.lambda_ no aportan apenas mejoría, __de aquí en adelante se trabajará con la serie logarítmica__.
 
 ## 4.2 Funciones de autocorrelación y autocorrelación parcial
-Una vez transformada la serie temporal, representamos gráficamente tanto la función de autocorrelación como de autocorrelación parcial, con el objetivo no solo de comprobar si la serie es o no estacionaria, sino además para determinar el tipo de modelo en función de los retardos que son significativamente distintos de cero. Dado que la serie presenta estacionalidad anual, se ha decido calcular las autocorrelaciones hasta el retardo 48, es decir, hasta 4 años:
+Una vez transformada la serie temporal, representamos gráficamente tanto la función de autocorrelación como de autocorrelación parcial, con el objetivo no solo de analizar la estacionariedad de la serie, sino además de determinar el tipo de modelo ARIMA en función de los retardos que son significativamente distintos de cero. 
+Dado que la serie presenta estacionalidad anual, como criterio personal se ha decidido calcular las autocorrelaciones hasta el retardo 48, es decir, hasta 4 años:
 
 ```{r, eval=FALSE}
 ggAcf(transf.box.cox, lag = 48) # Funcion de Autocorrelacion
 ggPacf(transf.box.cox, lag = 48) # Funcion de Autocorrelacion Parcial
 ```
-```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5.5, fig.align='center'}
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5, fig.align='center'}
 ggpubr::ggarrange(ggAcf(transf.box.cox, lag = 48),
                   ggPacf(transf.box.cox, lag = 48), ncol = 2)
 ```
 
-En los primeros pasos, debemos fijarnos sobretodo en la Función de Autocorrelación. En ella, detectamos la estacionalidad mencionada en los primeros apartados: por un lado, existe un patrón de autocorrelación que se repite anualmente y disminuye conforme aumentan los retardos. De hecho, el decrecimiento lento se aprecia mejor en los __retardos múltiplos de la estacionalidad__: 12, 24, 36 y 48, indicativo de que la serie presenta estacionalidad y no es estacionaria. Por tanto, para eliminar dicha estacionalidad __debemos aplicar una diferenciación de orden 12 (anual)__:
+En los primeros pasos, debemos fijarnos sobretodo en la Función de Autocorrelación. En ella, detectamos la estacionalidad mencionada en los primeros apartados: por un lado, existe un patrón de autocorrelación que se repite anualmente y que disminuye conforme aumentan los retardos. De hecho, la estacionalidad se aprecia mejor en los __retardos múltiplos de la estacionalidad__: 12, 24, 36 y 48, con valores máximos anuales que van decreciendo lentamente conforme aumentan los retardos, claro indicio de que la serie no es estacionaria.  Por tanto, para eliminar dicha estacionalidad __debemos aplicar una diferenciación de orden 12 (anual)__:
 
 ```{r, eval=FALSE}
 ggAcf(diff(transf.box.cox, 12), lag = 48) # Funcion de Autocorrelacion
 ggPacf(diff(transf.box.cox, 12), lag = 48) # Funcion de Autocorrelacion Parcial
 ```
-```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5.5, fig.align='center'}
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5, fig.align='center'}
 ggpubr::ggarrange(ggAcf(diff(transf.box.cox, 12), lag = 48),
                   ggPacf(diff(transf.box.cox, 12), lag = 48), ncol = 2)
 ```
 
-Una vez aplicada la diferenciación estacional, la serie continúa sin ser estacionaria, principalmente por un motivo: __sigue exitiendo un decrecimiento lento de los valores de autocorrelación__, tal y como podemos observar en la función ACF, es decir, la media no es constante. Una forma de comprobarlo sería gráficamente:
+Una vez aplicada la diferenciación estacional, la serie continúa sin ser estacionaria, principalmente por un motivo: __sigue existiendo un decrecimiento lento de los valores de autocorrelación__, tal y como podemos observar en la función ACF, es decir, la media sigue sin ser constante. Una forma de comprobarlo sería gráficamente:
 
 ```{r, fig.width=10, fig.height=5.5, fig.align='center'}
 autoplot(diff(transf.box.cox, 12)) +  ggtitle("Ingresos por ventas en ropa (log)") +
   xlab("Mes-Año") +  ylab("Millones de dólares (log)")
 ```
 
-Como podemos comprobar nuevamente, la estacionalidad anual se ha visto reducida considerablemente. No obstante, debido al decrecimiento en el número de ventas ocasionado entre los años 2007-2010 (periodo de recesión económica), provoca que la media no sea constante y, por tanto, __no podemos asegurar que la serie sea estacionaria en sentido débil__: si escojo dos series en cualquier instante de tiempo, sus medias y varianzas deberán ser constantes, pero el decrecimiento producido entre estos años lo impide. Además, incluso contrastes de hipótesis como el _kpss_ __rechazan la hipótesis nula de que la serie es estacionaria alrededor de una tendencia determinista__:
+Como podemos comprobar nuevamente, la estacionalidad anual se ha visto reducida considerablemente. No obstante, debido al decrecimiento en el número de ventas ocasionado entre los años 2007-2010 (periodo de recesión económica), provoca que la media no sea constante y, por tanto, __no podemos asegurar que la serie sea estacionaria en sentido débil__: _si escojo dos series en cualquier instante de tiempo, sus medias y varianzas deberán ser constantes_:
+
+$$
+E(X_t) = E(X_{t+k}) = \mu
+$$
+
+Sin embargo, el decrecimiento producido entre estos años lo impide. De hecho, existen contrastes de hipóstesis que permiten comprobar si la serie presenta o no estacionariedad. Uno de ellos es el método conocido como _adf_ o _Augmenteed Dickey-Fuller test_, que toman como hipótesis nula que la serie no es estacionaria, también conocido como __raíz unitaria__ (procesos que evolucionan a través del tiempo), en contraposición con la hipótesis alternativa [^2]. Para ello, la librería _tseries_ dispone de la función _adf.test_ con el que realizar el contraste de hipótesis:
 
 ```{r}
-tseries::kpss.test(diff(transf.box.cox, 12), null = "Trend") # null = Hipotesis nula
+tseries::adf.test(diff(transf.box.cox, 12)) # Hipotesis nula: la serie NO es estacionaria
 ```
 
-En el caso anterior, el p-valor obtenido es de 0.027, significativamente inferior a 0.05, por lo que rechazamos (al 95 % de confianza) la hipótesis nula de que la serie sea estacionaria en media. Por tanto, debemos aplicar una diferenciación a la componente regular de la serie:
+[^2]: https://nwfsc-timeseries.github.io/atsa-labs/sec-boxjenkins-aug-dickey-fuller.html
+
+En el caso anterior, el p-valor obtenido en el _test_ es de 0.498, un valor significativamente superior a 0.05, por lo que __no podemos rechazar la hipótesis nula al 95 % de confianza__, es decir, estadísticamente no existe evidencia en contra de que la serie no sea estacionaria. Por tanto, dado que no solo gráfica, sino además estadísticamente hemos podido asegurar que la serie continúa sin ser estacionaria, __debemos aplicar nuevamente una diferenciación a la componente regular__:
 
 ```{r, eval=FALSE}
 ggAcf(diff(diff(transf.box.cox, 12)), lag = 48) # Funcion de Autocorrelacion
 ggPacf(diff(diff(transf.box.cox, 12)), lag = 48) # Funcion de Autocorrelacion Parcial
 ```
-```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5.5, fig.align='center'}
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5, fig.align='center'}
 ggpubr::ggarrange(ggAcf(diff(diff(transf.box.cox, 12)), lag = 48),
                   ggPacf(diff(diff(transf.box.cox, 12)), lag = 48), ncol = 2)
 ```
@@ -265,34 +287,381 @@ comparar.autocorrelaciones <- function(datos.1, datos.2, tipo, titulo) {
 ```
 ```{r, eval=FALSE}
 comparar.autocorrelaciones(diff(diff(transf.box.cox, 12)), # Funcion de Autocorrelacion
-                           diff(diff(diff(transf.box.cox, 12))), tipo = "acf", "Comparación entre ACFs")
+                diff(diff(diff(transf.box.cox, 12))), tipo = "acf", "Comparación entre ACFs")
 comparar.autocorrelaciones(diff(diff(transf.box.cox, 12)), # Funcion de Autocorrelacion Parcial
-                           diff(diff(diff(transf.box.cox, 12))), tipo = "pacf", "Comparación entre PACFs")
+                diff(diff(diff(transf.box.cox, 12))), tipo = "pacf", "Comparación entre PACFs")
 ```
-```{r, echo=FALSE, warning=FALSE, fig.width=10.5, fig.height=5, fig.align='center'}
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5, fig.align='center'}
 ggpubr::ggarrange(comparar.autocorrelaciones(diff(diff(transf.box.cox, 12)),
                            diff(diff(diff(transf.box.cox, 12))), tipo = "acf", "Comparación entre ACFs"),
                   comparar.autocorrelaciones(diff(diff(transf.box.cox, 12)),
                            diff(diff(diff(transf.box.cox, 12))), tipo = "pacf", "Comparación entre PACFs"), ncol = 2, common.legend = TRUE, legend = "bottom")
 ```
 
-Pese a aplicar una diferenciación adicional, los valores de autocorrelación no se han visto prácticamente afectados: en el diagrama de barras de la izquierda podemos comprobar que tan solo ve reducida la correlación en un pequeño subconjunto de retardos (donde la barra en rojo es menor a la barra azul). En el resto de casos, la autocorrelación no ha disminuido.
-Con respecto a la función de autocorrelación parcial, bien es cierto que muchas de las autocorrelaciones se ven reducidas. Sin embargo, debemos destacar una importante diferencia en la función de autocorrelación parcial: __mientras que con una diferenciación regular tan solo son los dos primeros retardos son significativos, con dos diferenciaciones el número aumenta hasta 5__. Además, incluso si comparamos ambas series observamos un gran contraste en la varianza, con una variabilidad mucho mayor empleando dos diferenciaciones:
+Pese a aplicar una diferenciación adicional, __los valores de autocorrelación no se han visto prácticamente afectados__: en el diagrama de barras de la izquierda podemos comprobar que tan solo ve reducida la correlación en un pequeño subconjunto de retardos (donde la barra en rojo es menor a la barra azul). En el resto de autocorrelaciones, el valor no ha disminuido practicamente.
+Con respecto a la función de autocorrelación parcial, bien es cierto que muchas de las autocorrelaciones se han visto reducidas. Sin embargo, debemos destacar una importante diferencia en la función de autocorrelación parcial: __mientras que con una diferenciación regular tan solo los dos primeros retardos son significativos, empleando dos diferenciaciones el número aumenta hasta 5__. Además, incluso si comparamos ambas series observamos un gran contraste en la varianza, con una variabilidad mucho mayor empleando dos diferenciaciones:
 
-```{r, echo=FALSE, warning=FALSE, fig.width=10.5, fig.height=5, fig.align='center'}
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=4.5, fig.align='center'}
 autoplot(diff(diff(diff(transf.box.cox, 12))), series = "2 Dif. Regulares", size = 0.75)  +
   xlab("Mes-Año") +  ylab("Millones de dólares (log)") + autolayer(diff(diff(transf.box.cox, 12)), series = "1 Dif. Regular", size = 0.75) +
   ggtitle("Ingresos por ventas en ropa (comparacion entre diferenciaciones)") +
   scale_fill_manual("legend")
 ```
 
-Por tanto, dado que una diferenciación de orden 2 no reduce el decrecimiento en la función de autocorrelación parcial, además de aumentar incluso la variabilidad en la serie, optamos por una única diferenciación en la parte regular. 
+Por tanto, __dado que una diferenciación de orden 2 no reduce el decrecimiento en la función de autocorrelación parcial, además de aumentar incluso la variabilidad en la serie, optamos por una única diferenciación en la parte regular__. Si finalmente realizamos el contraste de hipótesis mediante la función _adf.test_, comprobamos que efectivamente la serie ya es estacionaria, dado que el p-valor es inferior a 0.05, rechazando con ello la hipótesis nula de la raíz unitaria:
+
+```{r}
+tseries::adf.test(diff(diff(transf.box.cox, 12)))
+```
 
 ## 4.3 Selección de los parámetros del modelo
-Una aplicadas las diferenciaciones, ya tenemos los coeficientes _d_ y _D_ del modelo ARIMA (1). Por tanto, debemos ajustar el resto de parámetros (autoregresivo y media móvil) tanto de la componente regular como estacional. Regresemos nuevamente con las funciones de autocorrelación y autocorrelación parcial:
+Una vez aplicadas las diferenciaciones, ya tenemos los coeficientes _d_ y _D_ del modelo ARIMA (1). Por tanto, debemos ajustar el resto de parámetros (autoregresivo y media móvil) tanto de la componente regular como estacional. Regresemos nuevamente con las funciones de autocorrelación y autocorrelación parcial:
+
+__PARTE INTEGRADA__:
+
+* __Componente Autoregresiva y Media Móvil (p y q)__: tal y como podemos observar en las funciones de autocorrelación, __nos encontramos con los primeros p = 2 parámetros significativos en la función de autocorrelación parcial__, así como un __decrecimiento atenuado (por medio de ondas sinusoidales) de los retardos en la función de autocorrelación parcial__. Por otro lado, dicha función no presenta aparentemente un decrecimiento atenuado de sus retardos u ondas sinusoidales, por lo que no parece ser necesario el uso de medias móviles. Por tanto, __de la parte integrada consideramos, junto con la diferenciación, una componente autoregresiva de orden 2__, es decir, ARIMA (2,1,0).
 
 ```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5, fig.align='center'}
 ggpubr::ggarrange(ggAcf(diff(diff(transf.box.cox, 12)), lag = 48),
                   ggPacf(diff(diff(transf.box.cox, 12)), lag = 48), ncol = 2)
 ```
+
+
+__PARTE ESTACIONAL__:
+
+* __Componente Autoregresiva y Media Móvil (p y q)__: en relación con la componente estacional, nos encontramos antes varias opciones posibles:
+
+  + __ARIMA (p = 0, d = 1, q = 2)__: por un lado, desde la función de autocorrelación (ACF) detectamos los primeros q = 2 retardos (múltiplos de la estacionalidad) significativos, concretamente en los retardos 12 y 24. Por otro lado, en relación con la función de autocorrelación parcial, bien es cierto que el decrecimiento de los retardos múltiplos de 12 no es tan claro, aunque si existe un comportamiento sinusoidal, especialmente en los retardos 12, 24 y 48. Por tanto, __una posibilidad sería considerar, junto con la diferenciación, una media móvil de orden 2__.
+
+  + __ARIMA (p = 4, d = 1, q = 0)__: del mismo modo que consideramos únicamente una parte de media móvil, también podemos tener solamente en cuenta una componente autoregresiva, con los q = 4 primeros retardos significativos en la función de autocorrelación parcial (también tenemos en cuenta el retardo 48, aunque el retardo 36 no sea significativo), así como un cierto decrecimiento en los retardos de la función de autocorrelación, donde a partir del retardo 36 el valor se sitúa por debajo del umbral de aceptación. Por tanto, __otra opción sería considerar únicamente una componente autoregresiva de orden 4__.
+
+  + __ARIMA (p = 4, d = 1, q = 2)__: por último, podría incluso considerarse un modelo ARIMA completo, dado que en la función de autocorrelación parcial los retardos múltiplos de 12 no "caen" repentinamente por debajo del umbral de aceptación (salvo el retardo 36); además de que los q = 2 primeros retardos son significativos en la función de autocorrelación. Por tanto, __otra posibilidad sería considerar tanto una componente autoregresiva de orden 4 como media móvil de orden 2__.
+
+Bien es cierto que los dos últimos modelos estacionales pueden no ser lo más adecuados, principalmente porque no todas las componentes autoregresivas son significativas, concretamente el tercer valor, tal y como hemos podido comprobar gráficamente. Sin embargo, considerar ambas posibilidades puede servirnos de gran ayuda a la hora de determinar qué componente o componentes aportan un mayor peso a la parte estacional, esto es, si la componente autoregresiva, la media móvil o ambas. Por tanto, mediante la función _arima_ realizamos un primer análisis, comparando los resultados obtenidos en los tres modelos:
+
+```{r}
+fitARIMA.1<-arima(transf.box.cox,order = c(2,1,0), seasonal=c(0,1,2)) # ARIMA (2,1,0) (0,1,2)
+fitARIMA.1.1 <- arima(transf.box.cox,order = c(2,1,0), seasonal=c(4,1,0)) # ARIMA (2,1,0) (4,1,0)
+fitARIMA.1.2 <- arima(transf.box.cox,order = c(2,1,0), seasonal=c(4,1,2)) # ARIMA (2,1,0) (4,1,2)
+```
+
+Una vez creados los modelos, recuperamos las estadísticas de cada uno, incluyendo los errores obtenidos, los criterios AIC y BIC, así como el p-valor resultante del test de _Lljung-Box_:
+
+```{r, results='hide'}
+estadisticas <- rbind(cbind(round(accuracy(fitARIMA.1), 3), "AIC" = AIC(fitARIMA.1), 
+                      "BIC" = BIC(fitARIMA.1), "p-valor " = checkresiduals(fitARIMA.1, 
+                      plot = FALSE)$p.value),
+      cbind(round(accuracy(fitARIMA.1.1), 3), "AIC" = AIC(fitARIMA.1.1), "BIC" = BIC(fitARIMA.1.1), 
+          "p-valor " = checkresiduals(fitARIMA.1.1, plot = FALSE)$p.value),
+      cbind(round(accuracy(fitARIMA.1.2), 3), "AIC" = AIC(fitARIMA.1.2), "BIC" = BIC(fitARIMA.1.2),
+          "p-valor " = checkresiduals(fitARIMA.1.2, plot = FALSE)$p.value))
+```
+
+```{r, echo=FALSE, fig.align='center'}
+rownames(estadisticas) <- c("ARIMA (2,1,0)(0,1,2)", "ARIMA (2,1,0)(4,1,0)", "ARIMA (2,1,0)(4,1,2)")
+knitr::kable(round(estadisticas, 3)) %>%
+  kableExtra::kable_styling(font_size = 9)
+```
+
+Comenzando con los errores promedio obtenidos, __observamos que la diferencia es prácticamente pequeña en cualquiera de los modelos__, donde incluso en el tercer modelo, con componentes tanto autoregresiva como de media móvil, la diferencia de error con respecto al resto de modelos es de tan solo unas milésimas. Por otro lado, tanto el criterio AIC como BIC dan una ligera ventaja al tercer modelo ARIMA, aunque nuevamente por muy poca diferencia: de tan solo 2 puntos en el AIC y menos de 20 puntos en el BIC.
+No obstante, llama especialmente la atención la diferencia en el p-valor obtenido en el test de _Llunj-Box_: __empleando tan solo 2 medias móviles, el primer modelo obtiene un valor de 0.47, significativamente mayor que el resto de modelos, es decir, empleando únicamente medias móviles conseguimos que el ruido sea lo más incorrelado posible (ruido blanco)__. A simple vista, las medias móviles parecen ser mucho más relevantes que la componente autoregresiva o un modelo ARIMA completo. Sin embargo, ¿Son todas las variables significativas?
+
+```{r, eval=FALSE}
+coeftest(fitARIMA.1); coeftest(fitARIMA.1.1); coeftest(fitARIMA.1.2)
+```
+```{r, echo=FALSE, out.width="95%", out.height="95%",fig.align="center",fig.cap="Importancia de los coeficientes en los modelos ARIMA (I)"}
+knitr::include_graphics("coef_test_1.png")
+```
+
+Tal y como podemos observar en la imagen anterior, pese a incluir un mayor número de parámetros, tanto el segundo como especialmente el tercer modelo ARIMA __presenta algunas de las variables con poca o ninguna importancia__. A modo de ejemplo, la cuarta componente autoregresiva apenas es relevante, con un p-valor por encima de 0.05. Por tanto, ¿Que ocurriría si eliminamos esta última componente? Es decir, mantener una componente autoregresiva de orden 3:
+
+```{r}
+fitARIMA.1.1 <- arima(transf.box.cox,order = c(2,1,0), seasonal=c(3,1,0)) # ARIMA (2,1,0) (3,1,0)
+fitARIMA.1.2 <- arima(transf.box.cox,order = c(2,1,0), seasonal=c(3,1,2)) # ARIMA (2,1,0) (3,1,2)
+```
+
+```{r, results='hide', echo=FALSE}
+estadisticas <- rbind(cbind(round(accuracy(fitARIMA.1), 3), "AIC" = AIC(fitARIMA.1), 
+                      "BIC" = BIC(fitARIMA.1), "p-valor " = checkresiduals(fitARIMA.1, 
+                      plot = FALSE)$p.value),
+                      
+          cbind(round(accuracy(fitARIMA.1.1), 3), "AIC" = AIC(fitARIMA.1.1), "BIC" = BIC(fitARIMA.1.1), 
+          "p-valor " = checkresiduals(fitARIMA.1.1, plot = FALSE)$p.value),
+          
+          cbind(round(accuracy(fitARIMA.1.2), 3), "AIC" = AIC(fitARIMA.1.2), "BIC" = BIC(fitARIMA.1.2),
+          "p-valor " = checkresiduals(fitARIMA.1.2, plot = FALSE)$p.value))
+```
+
+```{r, echo=FALSE, fig.align='center'}
+rownames(estadisticas) <- c("ARIMA (2,1,0)(0,1,2)", "ARIMA (2,1,0)(3,1,0)", "ARIMA (2,1,0)(3,1,2)")
+knitr::kable(round(estadisticas, 3)) %>%
+  kableExtra::kable_styling(font_size = 9)
+```
+
+Analizando nuevamente la tabla, tras eliminar la cuarta componente autoregresiva, el p-valor aumenta significativamente en el segundo modelo ARIMA, pasando de 0.32 a 0.37. Por el contrario, el p-valor en el tercer modelo si se ha visto reducido (de 0.30 a 0.27 al eliminar la cuarta componente). Por otro lado, si comparamos los dos primeros modelos, pese a tener valores de error, AIC y BIC prácticamente idénticos, el p-valor del primer modelo ARIMA continua aportando una mayor ventaja (0.47 frente a 0.37). En relación con la importancia de las variables:
+
+```{r, eval=FALSE}
+coeftest(fitARIMA.1); coeftest(fitARIMA.1.1); coeftest(fitARIMA.1.2)
+```
+```{r, echo=FALSE, out.width="98%", out.height="98%",fig.align="center",fig.cap="Importancia de los coeficientes en los modelos ARIMA (II)"}
+knitr::include_graphics("coef_test_2.png")
+```
+
+Observamos que el modelo ARIMA, tanto con componente autoregresiva como media móvil, continua sin ser la mejor alternativa, dada la poca importancia que presentan la mayoría de sus coeficientes. Por el contrario, empleando únicamente la componente autoregresiva o media móvil, su importancia mejora significativamente. 
+No obstante, __un modelo ARIMA, con tan solo la diferenciación y la componente autoregresiva, continua siendo la mejor alternativa__, principalmente por dos motivos:
+
+* Menor número de parámetros, en comparación con el modelo ARIMA (3,1,0)
+* Mayor p-valor en el _test_ de _Lljung-Box_, reforzando aún más la veracidad de la hipótesis nula (ruidos incorrelados)
+
+No obstante, antes de decidir cual es el modelo ganador, representamos gráficamente la distribución de los residuos de ambos modelos:
+
+```{r, fig.width=9, fig.height=3.3, fig.align='center'}
+ggtsdisplay(residuals(fitARIMA.1)) # ARIMA (2,1,0) (0,1,2)
+ggtsdisplay(residuals(fitARIMA.1.1)) # ARIMA (2,1,0) (3,1,O)
+```
+
+A la vista de los resultados obtenidos en ambos casos, __los retardos múltiplos de la estacionalidad (12, 24 y 36) se sitúan dentro del umbral de aceptación__, por lo que la componente estacional parece estar, aparentemente, ajustada. Por el contrario, en ambos modelos ARIMA nos encontramos con un retardo, al comienzo de la función de autocorrelación, que supera el umbral definido. Esto último puede suponer que sea necesario añadir componentes a la parte regular del modelo. Dado que los únicos coeficientes significativos en la función de autocorrelación parcial corresponden con los dos primeros retardos, no tendría sentido aumentar el orden de media móvil. Por el contrario, si podríamos incrementar el orden autoregresivo de ambos modelos, concretamente a orden 3 (correspondientes con los primeros retardos más significativos):
+
+```{r}
+fitARIMA.2<-arima(transf.box.cox,order = c(2,1,3), seasonal=c(0,1,2)) # ARIMA (2,1,3) (0,1,2)
+fitARIMA.2.1<-arima(transf.box.cox,order = c(2,1,3), seasonal=c(3,1,0)) # ARIMA (2,1,3) (3,1,0)
+```
+```{r, results='hide', echo=FALSE}
+estadisticas <- rbind(cbind(round(accuracy(fitARIMA.2), 3), "AIC" = AIC(fitARIMA.2), 
+                      "BIC" = BIC(fitARIMA.2), "p-valor " = checkresiduals(fitARIMA.2, 
+                      plot = FALSE)$p.value),
+                      
+          cbind(round(accuracy(fitARIMA.2.1), 3), "AIC" = AIC(fitARIMA.2.1), "BIC" = BIC(fitARIMA.2.1), 
+          "p-valor " = checkresiduals(fitARIMA.2.1, plot = FALSE)$p.value))
+```
+
+```{r, echo=FALSE, fig.align='center'}
+rownames(estadisticas) <- c("ARIMA (2,1,3)(0,1,2)", "ARIMA (2,1,3)(3,1,0)")
+knitr::kable(round(estadisticas, 3)) %>%
+  kableExtra::kable_styling(font_size = 9)
+```
+
+Analizando la salida obtenida, pese al aumento en los valores AIC y BIC, __el hecho de añadir una media móvil de orden 3 en ambos modelos ha supuesto una mejoría significativa__, principalmente en dos aspectos:
+
+* En primer lugar, __el valor del Error absoluto medio porcentual o MAPE__, donde en ambos casos ha disminuido (de 0.204 a 0.180, así como 0.203 a 0.182, respectivamente).
+* Sin embargo, __la principal mejoría se ve reflejada en el p-valor__, aumentando considerablemente en ambos modelos:
+  + ARIMA (2,1,3)(0,1,2): de 0.47 a 0.94
+  + ARIMA (2,1,3)(3,1,0): de 0.37 a 0.88
+
+No obstante, si nos fijamos en la importancia de los parámetros:
+```{r, eval=FALSE}
+coeftest(fitARIMA.2); coeftest(fitARIMA.2.1)
+```
+
+```{r, echo=FALSE, out.width="70%", out.height="70%",fig.align="center",fig.cap="Importancia de los coeficientes en los modelos ARIMA (III)"}
+knitr::include_graphics("coef_test_3.png")
+```
+
+Observamos que tanto la segunda media móvil como la tercera componente autoregresiva no son parámetros significativos en sus respectivos modelos, por lo que debemos descartarlos:
+
+```{r}
+fitARIMA.2<-arima(transf.box.cox,order = c(2,1,3), seasonal=c(0,1,1)) # ARIMA (2,1,3) (0,1,1)
+fitARIMA.2.1<-arima(transf.box.cox,order = c(2,1,3), seasonal=c(2,1,0)) # ARIMA (2,1,3) (2,1,0)
+```
+```{r, results='hide', echo=FALSE}
+estadisticas <- rbind(cbind(round(accuracy(fitARIMA.2), 3), "AIC" = AIC(fitARIMA.2), 
+                      "BIC" = BIC(fitARIMA.2), "p-valor " = checkresiduals(fitARIMA.2, 
+                      plot = FALSE)$p.value),
+                      
+          cbind(round(accuracy(fitARIMA.2.1), 3), "AIC" = AIC(fitARIMA.2.1), "BIC" = BIC(fitARIMA.2.1), 
+          "p-valor " = checkresiduals(fitARIMA.2.1, plot = FALSE)$p.value))
+```
+
+```{r, echo=FALSE, fig.align='center'}
+rownames(estadisticas) <- c("ARIMA (2,1,3)(0,1,1)", "ARIMA (2,1,3)(2,1,0)")
+knitr::kable(round(estadisticas, 3)) %>%
+  kableExtra::kable_styling(font_size = 9)
+```
+
+Una vez eliminados ambos parámetros, aunque el p-valor disminuya en ambos casos, el valor obtenido continua siendo muy significativo (del orden de 0.85). Además, si comprobamos nuevamente la importancia de los parámetros:
+
+```{r, echo=FALSE, out.width="75%", out.height="75%",fig.align="center",fig.cap="Importancia de los coeficientes en los modelos ARIMA (IV)"}
+knitr::include_graphics("coef_test_4.png")
+```
+
+Podemos comprobar que todos los parámetros son prácticamente significativos en ambos modelos. Por otra parte, si analizamos los valores residuales en las funciones de autocorrelación:
+
+```{r, fig.width=9, fig.height=3.3, fig.align='center'}
+ggtsdisplay(residuals(fitARIMA.2)) # ARIMA (2,1,3) (0,1,1)
+ggtsdisplay(residuals(fitARIMA.2.1)) # ARIMA (2,1,3) (2,1,O)
+```
+
+Podemos comprobar como el retardo situado al comienzo de la función de autocorrelación se reduce drásticamente en ambos modelos, donde destaca únicamente un solo retardo en ambos modelos, aunque se situa en los límites del umbral de aceptación.  
+
+## 4.4 Selección y justificación del modelo ganador
+
+Por tanto, ¿Qué modelo debemos escoger? En ambos casos, nos encontramos con dos modelos con valores de error muy similares. Sin embargo, pese a que el segundo modelo ARIMA presente valores AIC y BIC relativamente menores, la diferencia no es muy significativa, aún teniendo un mayor número de parámetros (-611 en comparación con -612 en el AIC, así como -587 en comparación con -591 en el BIC). Por otro lado, el p-valor obtenido en el _test_ de _Lljung-Box_ proporciona una ligera ventaja al primer modelo ARIMA (0.849 frente a 0.847), incluso empleando un parámetro menos.
+
+En relación con los valores residuales, a excepción de un valor de autocorrelación situado entre los retardos 24 y 36, __el resto se sitúan por debajo del umbral de aceptación, con valores muy similares en ambos modelos__. Por otro lado, ¿Y en relación con el modelo auto.arima? Es decir, el modelo ARIMA generado automáticamente ¿Supone mejoría alguna en relación con los modelo candidatos?
+
+```{r}
+fitARIMA.auto <- auto.arima(transf.box.cox, seasonal = TRUE)
+round(coef(fitARIMA.auto), 3) # Coeficientes del modelo auto.arima
+```
+
+```{r, results='hide', echo=FALSE}
+estadisticas <- rbind(cbind(round(accuracy(fitARIMA.2), 3), "AIC" = AIC(fitARIMA.2), 
+                      "BIC" = BIC(fitARIMA.2), "p-valor " = checkresiduals(fitARIMA.2, 
+                      plot = FALSE)$p.value),
+                      
+          cbind(round(accuracy(fitARIMA.2.1), 3), "AIC" = AIC(fitARIMA.2.1), "BIC" = BIC(fitARIMA.2.1), 
+          "p-valor " = checkresiduals(fitARIMA.2.1, plot = FALSE)$p.value),
+          cbind(round(accuracy(fitARIMA.auto), 3), "AIC" = AIC(fitARIMA.auto), "BIC" = BIC(fitARIMA.auto), 
+          "p-valor " = checkresiduals(fitARIMA.auto, plot = FALSE)$p.value)
+          )
+```
+
+```{r, echo=FALSE, fig.align='center'}
+rownames(estadisticas) <- c("ARIMA (2,1,3)(0,1,1)", "ARIMA (2,1,3)(2,1,0)", "auto.arima")
+knitr::kable(round(estadisticas, 3)) %>%
+  kableExtra::kable_styling(font_size = 9)
+```
+
+Incluso el modelo automático, sin aplicar una diferenciación a la parte regular, no aporta mejoría alguna al modelo, principalmente por dos motivos:
+
+* En primer lugar, tan solo aplicando una diferenciación en la componente estacional, todos los errores (a excepción del Error Medio o ME y el Error Porcentual Medio o MPE) aumentan con respecto a los otros dos modelos ARIMA.
+
+* Por otro lado, el p-valor de los valores residuales es significativamente menor a los modelos ARIMA (0.1 frente a 0.84), por lo que, aunque estadísticamente no existiría evidencia en contra de que los residuos estén incorrelados, el mayor p-valor obtenido en los dos modelos anteriores, con una diferenciación en la parte regular, rechazan con "mayor fuerza" la hipótesis nula.
+
+Es decir, el modelo _auto.arima_, en comparación con los modelos ARIMA generados manualmente, no aporta mejoría alguna. Finalmente, aplicando el principio de parsimonía: _en igualdad de condiciones, ante dos explicaciones de un suceso, la más sencilla suele ser la más probable_. Por tanto, __ante dos modelos ARIMA con resultados muy similares, nos decantamos por el modelo más sencillo__, concretamente el modelo ARIMA (2,1,3) (0,1,1):
+
+```{r}
+fitARIMA.2 # ARIMA (2,1,3) (0,1,1)
+```
+
+Por tanto, el modelo ARIMA final será el siguiente:
+
+$$
+(1-\phi_1B-\phi_2B^2)(1-B^{12})(1-B)X_t=(1-\Theta_1B^{12})(1-\theta_1B-\theta_2B^2-\theta_3B^3)Z_t
+$$
+
+Con los parámetros estimados:
+
+$$
+(1+1.1683B+0.9988B^2)(1-B^{12})(1-B)X_t=(1+0.6156B^{12})(1-0.5971B-0.3717B^2+0.5484B^3)Z_t
+$$
+
+## 4.5 Predicción e intervalos de confianza
+
+A continuación, una vez estimado el modelo ARIMA realizamos el cálculo de las predicciones e intervalos de confianza para los siguientes doce meses, es decir, para el año 2019, principalmente por dos motivos:
+
+* Dado que los datos de la serie son mensuales, además de que disponemos de los valores del año 2019, __nos permitirá contrastar los resultados obtenidos en un periodo completo__, comparando las ventas previstas en cada mes con los valores reales en dicho año, junto con los obtenidos en el modelo de _Holt-Winters_.
+* Por otro lado, aunque no es habitual realizar predicciones a medio/largo plazo, __una posibilidad podría haber sido no solo predecir los valores del año 2019, sino además del año 2020__, dado que desde el repositorio es posible recuperar dicho datos. Sin embargo, debido a la situación económica generada por la pandemia del COVID-19, las previsiones del modelo contrastarían con la "gran caída" en el número de ventas producido durante este año, lo que dificultaría en gran medida la medición de la calidad de los modelos.
+
+Por tanto, __realizamos la predicción para los valores de venta del año 2019__:
+
+```{r}
+prediccion <- forecast(fitARIMA.2, h = 12)
+```
+
+Una vez realizada la predicción, debemos recordar que la serie que hemos empleado para la elaboración del modelo ARIMA __ha sido transformada mediante la función logarítmica__. Por tanto, y especialmente de cara al siguiente apartado, aplicamos la función _exp_ a cada uno de los resultados obtenidos, tanto los valores predichos como sus intervalos de confianza al 80 y 95 %, con el objetivo de eliminar la transformación logarítmica:
+
+```{r}
+prediccion$x <- exp(1) ** prediccion$x # Valores obtenidos en el entrenamiento
+prediccion$mean <- exp(1) ** prediccion$mean # Valores de la prediccion para el año 2019
+prediccion$lower <- exp(1) ** prediccion$lower;  prediccion$upper <- exp(1) ** prediccion$upper # Int. confianza
+```
+
+A continuación, mostramos tanto las predicciones e intervalos de confianza como su representación gráfica:
+\footnotesize
+```{r, echo=FALSE}
+prediccion
+```
+\small
+
+```{r, echo=FALSE, fig.width=10, fig.height=5}
+cbind("Ingresos por ventas (reales)" = ventas.ropa.ts.transformado, 
+      "Valores ajustados" = exp(1) ** fitted(fitARIMA.2)) %>% autoplot() + xlab("Mes-Año") + ylab("") +
+      autolayer(prediccion, series = "Modelo ARIMA final") + scale_color_manual(values=c("black", "blue", "red")) + 
+      ggtitle("Ingresos observados y ajustados") + theme(legend.position="bottom")
+```
+
+Tal y como podemos observar en el gráfico anterior, los valores de ajuste obtenidos con el conjunto de "entrenamiento" son bastante similares a las ventas reales. No obstante, en los periodos en los que hay un mayor descenso en el número de ventas, __las predicciones experimentan un mayor desajuste__, sobretodo en los "picos" de ventas correspondientes al mes de diciembre, donde los valores previstos son significativamente mayores a los ingresos reales. En relación con el resto de años, el ajuste se asemeja en mayor o menor medida a las ventas reales. 
+Con respecto a los valores previstos, los resultados obtenidos gráficamente se asemejan a los obtenidos en el modelo _Holt-Winters_. Por ello, a simple vista no encontramos una diferencia significativa entre la previsión de ambos modelos, por lo que en el siguiente apartado no solo compararemos las predicciones gráficamente, sino también numericamente.
+
+# 5. Comparación predicciones modelo ARIMA y suavizado exponencial. Conclusiones
+Por último, realizamos una comparación de las predicciones, tanto gráfica como numericamente, a partir del conjunto de datos previamente reservado correspondiente al año 2019. En primer lugar, comparamos la diferencia entre los valores reales y previstos en ambos modelos:
+
+\footnotesize
+```{r, echo=FALSE}
+cbind(ventas.ropa.test, "ARIMA (dif)" = prediccion$mean - ventas.ropa.test, "Holt-Winters (dif)" =  ventas.ropa.hw$mean - ventas.ropa.test)
+```
+\small
+
+En primer lugar, analizando las diferencias entre los valores reales y previstos, observamos que las predicciones realizadas por el modelo ARIMA __se acercan en mayor medida a los valores originales prácticamente en todos los meses, a excepción de los meses de agosto y octubre, donde los valores obtenidos en el modelo _Holt-Winters_ se acercan en mayor medida a las ventas reales__. Por otro lado, si analizamos gráficamente tanto las predicciones obtenidas como los intervalos de confianza:
+
+```{r, echo=FALSE, fig.width=10, fig.height=5.5, warning=FALSE}
+ggpubr::ggarrange(autoplot(ventas.ropa.test, PI = FALSE) + 
+                      autolayer(prediccion, series = "Modelo ARIMA Final", alpha = 5, PI = FALSE) +
+                      autolayer(ventas.ropa.hw, series = "Modelo Holt-Winters", alpha = 5, PI = FALSE) +
+                      autolayer(ventas.ropa.test, series = "Datos Test", alpha = 5, PI = FALSE) +
+                      guides(colour = guide_legend("Modelo"), fill=guide_legend(title="Modelos de prediccion")) +
+                      ggtitle("ARIMA vs Holt-Winters") + scale_color_manual(values=c("black", "blue", "red"))
+, autoplot(ventas.ropa.test) + 
+    autolayer(ventas.ropa.hw, series = "Modelo Holt-Winters", alpha = 5) +
+    autolayer(prediccion, series = "Modelo ARIMA Final", alpha = 5) +
+    autolayer(ventas.ropa.test, series = "Datos Test", alpha = 5) +
+    guides(colour = guide_legend("Modelo"), fill=guide_legend(title="Modelos de prediccion")) +
+    ggtitle("ARIMA vs Holt-Winters (Intervalos de confianza)") + scale_color_manual(values=c("black", "blue", "red"))
+, ncol = 2, common.legend = TRUE, legend = "bottom")
+```
+
+No solo las predicciones del modelo ARIMA se aproximan en mejor medida a los valores reales, sino que además la amplitud de los intervalos de confianza, tanto al 80 como al 95 %, __son mucho menores en comparación con el modelo de _Holt-Winters___. De hecho, si analizamos las estadísticas de error en cada modelo:
+
+```{r, eval=FALSE}
+cbind(accuracy(prediccion, ventas.ropa.test),"AIC" = AIC(fitARIMA.2),"BIC" = BIC(fitARIMA.2))
+```
+```{r, echo=FALSE, fig.align='center'}
+temp.1 <- cbind(accuracy(prediccion, ventas.ropa.test),"AIC" = AIC(fitARIMA.2),"BIC" = BIC(fitARIMA.2))
+temp.2 <- cbind(accuracy(ventas.ropa.hw, ventas.ropa.test),"AIC" = ventas.ropa.hw$model$aic,"BIC" = ventas.ropa.hw$model$bic)
+rownames(temp.1) <- c("Train", "Test"); rownames(temp.2) <- c("Train", "Test");
+knitr::kable(round(temp.1, 3)) %>% kableExtra::kable_styling(font_size = 9)
+```
+```{r, eval=FALSE}
+cbind(accuracy(ventas.ropa.hw, ventas.ropa.test),"AIC" = ventas.ropa.hw$model$aic,
+      "BIC" = ventas.ropa.hw$model$bic)
+```
+```{r, echo=FALSE, fig.align='center'}
+knitr::kable(round(temp.2, 3)) %>% kableExtra::kable_styling(font_size = 9)
+```
+
+Observamos que un intervalo de confianza más pequeño ofrece resultados más precisos, aunque aumenta su probabilidad de error. Esto último lo podemos observar en los valores de error del conjunto de entrenamiento, __los cuales son significativamente mayores en el modelo ARIMA en comparación con el modelo _Holt-Winters___. Sin embargo, al contrastar los valores de error en el conjunto de prueba, cambian las tornas completamente: no solo los valores de error son mucho más pequeños en el modelo ARIMA, sino además del coeficiente de incertidumbre, conocido como _Theil's U_ (0.199 frente a 0.251), encargado de medir la exactitud de un pronóstico, de forma que cuanto más cercano a 0, más precisa será la predicción. Por otro lado, los criterios de error AIC y BIC también muestran una mayor ventaja del modelo ARIMA frente al modelo de _Holt-Winters_:
+
+* AIC: -612 frente a 2795
+* BIC: -591 frente a 2848
+
+Además, incluso si comparamos el p-valor de los valores residuales en ambos modelos:
+
+```{r, results='hide'}
+p.valor.arima <- checkresiduals(fitARIMA.2, plot = FALSE)$p.value # Modelo ARIMA final 
+```
+```{r, echo=FALSE}
+p.valor.arima
+```
+```{r, results='hide'}
+p.valor.hw <- checkresiduals(ventas.ropa.hw, plot = FALSE)$p.value # Modelo Holt-Winters
+```
+```{r, echo=FALSE}
+p.valor.hw
+```
+
+La diferencia es muy significativa: 0.85 frente a un p-valor extremadamente pequeño (del orden de $10^{-13}$). Por tanto, y en base a los resultados obtenidos, __el modelo ARIMA presenta un mejor resultado en todos los aspectos__:
+
+* En primer lugar, no solo unas predicciones mucho más cercanas a los valores reales, sino además una amplitud significativamente menor en sus intervalos de confianza, tanto al 80 como al 95 %.
+
+* Por otro lado, pese a que el error obtenido en el conjunto de entrenamiento ha sido mucho mayor en el modelo ARIMA, los valores de error en el conjunto de prueba marcan la diferencia, con errores mucho más pequeños. Del mismo modo sucede con los criterios AIC y BIC.
+
+* Por su parte, el criterio de incertidumbre muestra un valor mucho más cercano a 0, lo que evidencia que los pronósticos obtenidos en el modelo ARIMA son más fiables en el modelo de _Holt-Winters_.
+
+* Además, el p-valor obtenido en la función _checkresiduals_ demuestra la clara incorrelación del ruido en el modelo ARIMA, en contraposición al modelo de _Holt-Winters_, donde el p-valor se sitúa por debajo de 0.05, es decir, rechazamos la hipótesis nula de que la serie presenta "ruido blanco".
+
+Como conclusión final, pese a la mejoría que supone el modelo ARIMA, __los valores de error obtenidos continuan siendo demasiado elevados__, teniendo en cuenta que las unidades de medida se miden en el orden de "millones de dólares", por lo que cabría destacar, como posible futura línea de investigación, contrastar dicho modelo ARIMA con otras técnicas predictivas, tales como algoritmos de _Machine Learning_, redes neuronales, algoritmos genéticos, e incluso la inclusión de variables externas al modelo, derivando en una serie temporal multivariable.
+
+
+
 

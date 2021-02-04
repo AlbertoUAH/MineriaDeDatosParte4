@@ -111,7 +111,7 @@ ggtsdisplay(residuals(fitARIMA.1.1))
 data.frame(cbind(round(accuracy(fitARIMA.1.1), 3), "AIC" = AIC(fitARIMA.1.1), "SBC" = BIC(fitARIMA.1.1)))
 
 # ¿Podriamos mejorar la parte estacional? Sobretodo con la estacionalidad 36
-fitARIMA.1.2 <- arima(transf.box.cox,order = c(2,1,0), seasonal=c(3,1,2))
+fitARIMA.1.2 <- arima(transf.box.cox,order = c(2,1,0), seasonal=c(2,1,2))
 coeftest(fitARIMA.1.2)
 checkresiduals(fitARIMA.1.2, plot = FALSE)
 ggtsdisplay(residuals(fitARIMA.1.2))
@@ -196,10 +196,12 @@ prediccion$mean <- exp(1) ** prediccion$mean
 prediccion$lower <- exp(1) ** prediccion$lower
 prediccion$upper <- exp(1) ** prediccion$upper
 
-cbind("Ingresos por ventas (log)" = transf.box.cox, 
-      "Valores ajustados" =fitted(fitARIMA.2)) %>% autoplot() + xlab("Mes-Año") + ylab("") + ggtitle("Ingresos observados y ajustados")
+cbind("Ingresos por ventas (reales)" = ventas.ropa.ts.transformado, 
+      "Valores ajustados" = exp(1) ** fitted(fitARIMA.2)) %>% autoplot() + xlab("Mes-Año") + ylab("") +
+      autolayer(prediccion, series = "Modelo ARIMA final") + scale_color_manual(values=c("black", "blue", "red")) + 
+      ggtitle("Ingresos observados y ajustados")
 
-autoplot(ventas.ropa.ts) + autolayer(prediccion, series = "Modelo ARIMA Final", alpha = 0.5) + 
+autoplot(ventas.ropa.ts) + autolayer(prediccion$x, series = "Valores ajustados", alpha = 0.5) + autolayer(prediccion, series = "Modelo ARIMA Final", alpha = 0.5) + 
   guides(colour = guide_legend("Modelo")) + ggtitle("Prediccion modelo ARIMA Final")
 
 #prediccion$x <- exp(log(0.3614745 * prediccion$x + 1) / 0.3614745)
@@ -216,8 +218,8 @@ autoplot(ventas.ropa.test, PI = FALSE) +
   ggtitle("Comparativa modelo ARIMA + Holt-Winters") + scale_color_manual(values=c("black", "blue", "red"))
 
 # Por otro lado, comparamos la anchura de los intervalos de confianza de ambos modelos
-cbind("Modelo ARIMA Final (80 %)" = prediccion$upper[,1] - prediccion$lower[,1], "Modelo ARIMA Final (95 %)" = prediccion$upper[,2] - prediccion$lower[,2])
-cbind("Modelo Holt-Winters (80 %)" = ventas.ropa.hw$upper[,1] - ventas.ropa.hw$lower[,1], "Modelo Holt-Winters (95 %)" = ventas.ropa.hw$upper[,2] - ventas.ropa.hw$lower[,2])
+cbind("Modelo ARIMA Final (80 %)" = prediccion$upper[,1] - prediccion$lower[,1], "Modelo ARIMA Final (95 %)" = prediccion$upper[,2] - prediccion$lower[,2],
+"Modelo Holt-Winters (80 %)" = ventas.ropa.hw$upper[,1] - ventas.ropa.hw$lower[,1], "Modelo Holt-Winters (95 %)" = ventas.ropa.hw$upper[,2] - ventas.ropa.hw$lower[,2])
 
 autoplot(ventas.ropa.test) + 
   autolayer(ventas.ropa.hw, series = "Modelo Holt-Winters", alpha = 5) +
@@ -226,8 +228,7 @@ autoplot(ventas.ropa.test) +
   guides(colour = guide_legend("Modelo"), fill=guide_legend(title="Modelos de prediccion")) +
   ggtitle("Comparativa modelo ARIMA + Holt-Winters (Intervalos de confianza)") + scale_color_manual(values=c("black", "blue", "red"))
 
-cbind(ventas.ropa.test, "Modelo ARIMA Final" = prediccion$mean, "Modelo Holt-Winters" = ventas.ropa.hw$mean)
-cbind(ventas.ropa.test, "Modelo ARIMA Final (dif)" = prediccion$mean - ventas.ropa.test, "Modelo Holt-Winters (dif)" =  ventas.ropa.hw$mean - ventas.ropa.test)
+cbind(ventas.ropa.test, "ARIMA (dif)" = prediccion$mean - ventas.ropa.test, "Holt-Winters (dif)" =  ventas.ropa.hw$mean - ventas.ropa.test)
 
 # Comparamos tanto las estadisticas de cada modelo...
 data.frame(cbind(round(accuracy(prediccion, ventas.ropa.test), 3), "AIC" = AIC(fitARIMA.2), "SBC" = BIC(fitARIMA.2)))

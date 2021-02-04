@@ -44,8 +44,11 @@ autolayer(trendcycle(ventas.ropa.comp), series="Tendencia") + autolayer(seasadj(
   ggtitle("Ingresos por ventas en ropa de caballero") + scale_colour_manual(values=c("gray","blue","red"),
                                                         breaks=c("Datos","Estacionalmente ajustada","Tendencia"))
 
+my_colors <- RColorBrewer::brewer.pal(4, "Blues")[1:13]
 ggseasonplot(ventas.ropa.ts, year.labels=TRUE, year.labels.left=TRUE) + ylab("Número") +
-  ggtitle("Seasonal plot: ingresos por ventas en ropa de caballero") + theme(text = element_text(size = 9))
+  ggtitle("Seasonal plot: ingresos por ventas en ropa de caballero") + theme(text = element_text(size = 9)) +
+  scale_fill_manual(values = my_colors,
+                    labels = c(2006:2019))
 
 # Representamos los coeficientes de estacionalidad e irregularidad
 ventas.ropa.season<- cbind(ventas.ropa.comp$seasonal,ventas.ropa.comp$random)
